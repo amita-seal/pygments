@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
     pygments.styles.murphy
     ~~~~~~~~~~~~~~~~~~~~~~
 
     Murphy's style from CodeRay.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -17,6 +18,8 @@ class MurphyStyle(Style):
     """
     Murphy's style from CodeRay.
     """
+
+    default_style = ""
 
     styles = {
         Whitespace:                "#bbbbbb",
@@ -69,7 +72,6 @@ class MurphyStyle(Style):
         Generic.Error:             "#FF0000",
         Generic.Emph:              "italic",
         Generic.Strong:            "bold",
-        Generic.EmphStrong:        "bold italic",
         Generic.Prompt:            "bold #c65d09",
         Generic.Output:            "#888",
         Generic.Traceback:         "#04D",

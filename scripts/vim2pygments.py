@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
     Vim Colorscheme Converter
     ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -6,9 +7,11 @@
     This script converts vim colorscheme files to valid pygments
     style classes meant for putting into modules.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright 2006 by Armin Ronacher.
     :license: BSD, see LICENSE for details.
 """
+
+from __future__ import print_function
 
 import sys
 import re
@@ -860,7 +863,7 @@ def find_colors(code):
     return default_token, color_map
 
 
-class StyleWriter:
+class StyleWriter(object):
 
     def __init__(self, code, name):
         self.code = code

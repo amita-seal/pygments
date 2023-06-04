@@ -1,33 +1,25 @@
-"""
-    detect_missing_analyse_text
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
-    :license: BSD, see LICENSE for details.
-"""
-
+from __future__ import print_function
 import sys
 
 from pygments.lexers import get_all_lexers, find_lexer_class
 from pygments.lexer import Lexer
 
-import argparse
-
-
-def main(args):
+def main():
     uses = {}
 
-    for name, aliases, filenames, mimetypes in get_all_lexers(plugins=False):
+    for name, aliases, filenames, mimetypes in get_all_lexers():
         cls = find_lexer_class(name)
-        if not cls.aliases and not args.skip_no_aliases:
+        if not cls.aliases:
             print(cls, "has no aliases")
         for f in filenames:
-            uses.setdefault(f, []).append(cls)
+            if f not in uses:
+                uses[f] = []
+            uses[f].append(cls)
 
     ret = 0
     for k, v in uses.items():
         if len(v) > 1:
-            # print("Multiple for", k, v)
+            #print "Multiple for", k, v
             for i in v:
                 if i.analyse_text is None:
                     print(i, "has a None analyse_text")
@@ -37,12 +29,5 @@ def main(args):
                     ret |= 2
     return ret
 
-
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--skip-no-aliases',
-                        help='Skip checks for a lexer with no aliases',
-                        action='store_true',
-                        default=False)
-    args = parser.parse_args()
-    sys.exit(main(args))
+    sys.exit(main())

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     pygments.styles.monokai
     ~~~~~~~~~~~~~~~~~~~~~~~
@@ -6,12 +7,12 @@
 
     http://www.monokai.nl/blog/2006/07/15/textmate-color-theme/
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
 from pygments.style import Style
-from pygments.token import Keyword, Name, Comment, String, Error, Token, \
+from pygments.token import Keyword, Name, Comment, String, Error, Text, \
      Number, Operator, Generic, Whitespace, Punctuation, Other, Literal
 
 class MonokaiStyle(Style):
@@ -24,7 +25,7 @@ class MonokaiStyle(Style):
 
     styles = {
         # No corresponding class for the following:
-        Token:                     "#f8f8f2", # class:  ''
+        Text:                      "#f8f8f2", # class:  ''
         Whitespace:                "",        # class: 'w'
         Error:                     "#960050 bg:#1e0010", # class: 'err'
         Other:                     "",        # class 'x'
@@ -101,7 +102,6 @@ class MonokaiStyle(Style):
         Generic.Output:            "#66d9ef", # class: 'go'
         Generic.Prompt:            "bold #f92672", # class: 'gp'
         Generic.Strong:            "bold",    # class: 'gs'
-        Generic.EmphStrong:        "bold italic",  # class: 'ges'
         Generic.Subheading:        "#75715e", # class: 'gu'
         Generic.Traceback:         "",        # class: 'gt'
     }

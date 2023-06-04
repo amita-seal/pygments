@@ -1,31 +1,33 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers.python
     ~~~~~~~~~~~~~~~~~~~~~~
 
     Lexers for Python and related languages.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
 import re
-import keyword
 
-from pygments.lexer import DelegatingLexer, Lexer, RegexLexer, include, \
-    bygroups, using, default, words, combined, do_insertions, this, line_re
+from pygments.lexer import Lexer, RegexLexer, include, bygroups, using, \
+    default, words, combined, do_insertions
 from pygments.util import get_bool_opt, shebang_matches
 from pygments.token import Text, Comment, Operator, Keyword, Name, String, \
-    Number, Punctuation, Generic, Other, Error, Whitespace
+    Number, Punctuation, Generic, Other, Error
 from pygments import unistring as uni
 
 __all__ = ['PythonLexer', 'PythonConsoleLexer', 'PythonTracebackLexer',
            'Python2Lexer', 'Python2TracebackLexer',
            'CythonLexer', 'DgLexer', 'NumPyLexer']
 
+line_re = re.compile('.*?\n')
+
 
 class PythonLexer(RegexLexer):
     """
-    For Python source code (version 3.x).
+    For `Python <http://www.python.org>`_ source code (version 3.x).
 
     .. versionadded:: 0.10
 
@@ -35,13 +37,10 @@ class PythonLexer(RegexLexer):
     """
 
     name = 'Python'
-    url = 'http://www.python.org'
     aliases = ['python', 'py', 'sage', 'python3', 'py3']
     filenames = [
         '*.py',
         '*.pyw',
-        # Type stubs
-        '*.pyi',
         # Jython
         '*.jy',
         # Sage
@@ -61,6 +60,8 @@ class PythonLexer(RegexLexer):
     ]
     mimetypes = ['text/x-python', 'application/x-python',
                  'text/x-python3', 'application/x-python3']
+
+    flags = re.MULTILINE | re.UNICODE
 
     uni_name = "[%s][%s]*" % (uni.xid_start, uni.xid_continue)
 
@@ -84,130 +85,51 @@ class PythonLexer(RegexLexer):
             # newlines are an error (use "nl" state)
         ]
 
-    def fstring_rules(ttype):
-        return [
-            # Assuming that a '}' is the closing brace after format specifier.
-            # Sadly, this means that we won't detect syntax error. But it's
-            # more important to parse correct syntax correctly, than to
-            # highlight invalid syntax.
-            (r'\}', String.Interpol),
-            (r'\{', String.Interpol, 'expr-inside-fstring'),
-            # backslashes, quotes and formatting signs must be parsed one at a time
-            (r'[^\\\'"{}\n]+', ttype),
-            (r'[\'"\\]', ttype),
-            # newlines are an error (use "nl" state)
-        ]
-
     tokens = {
         'root': [
-            (r'\n', Whitespace),
+            (r'\n', Text),
             (r'^(\s*)([rRuUbB]{,2})("""(?:.|\n)*?""")',
-             bygroups(Whitespace, String.Affix, String.Doc)),
+             bygroups(Text, String.Affix, String.Doc)),
             (r"^(\s*)([rRuUbB]{,2})('''(?:.|\n)*?''')",
-             bygroups(Whitespace, String.Affix, String.Doc)),
+             bygroups(Text, String.Affix, String.Doc)),
+            (r'[^\S\n]+', Text),
             (r'\A#!.+$', Comment.Hashbang),
             (r'#.*$', Comment.Single),
+            (r'[]{}:(),;[]', Punctuation),
             (r'\\\n', Text),
             (r'\\', Text),
+            (r'(in|is|and|or|not)\b', Operator.Word),
+            (r'!=|==|<<|>>|[-~+/*%=<>&^|.]', Operator),
             include('keywords'),
-            include('soft-keywords'),
             (r'(def)((?:\s|\\\s)+)', bygroups(Keyword, Text), 'funcname'),
             (r'(class)((?:\s|\\\s)+)', bygroups(Keyword, Text), 'classname'),
             (r'(from)((?:\s|\\\s)+)', bygroups(Keyword.Namespace, Text),
              'fromimport'),
             (r'(import)((?:\s|\\\s)+)', bygroups(Keyword.Namespace, Text),
              'import'),
-            include('expr'),
-        ],
-        'expr': [
-            # raw f-strings
-            ('(?i)(rf|fr)(""")',
-             bygroups(String.Affix, String.Double),
-             combined('rfstringescape', 'tdqf')),
-            ("(?i)(rf|fr)(''')",
-             bygroups(String.Affix, String.Single),
-             combined('rfstringescape', 'tsqf')),
-            ('(?i)(rf|fr)(")',
-             bygroups(String.Affix, String.Double),
-             combined('rfstringescape', 'dqf')),
-            ("(?i)(rf|fr)(')",
-             bygroups(String.Affix, String.Single),
-             combined('rfstringescape', 'sqf')),
-            # non-raw f-strings
-            ('([fF])(""")', bygroups(String.Affix, String.Double),
-             combined('fstringescape', 'tdqf')),
-            ("([fF])(''')", bygroups(String.Affix, String.Single),
-             combined('fstringescape', 'tsqf')),
-            ('([fF])(")', bygroups(String.Affix, String.Double),
-             combined('fstringescape', 'dqf')),
-            ("([fF])(')", bygroups(String.Affix, String.Single),
-             combined('fstringescape', 'sqf')),
-            # raw bytes and strings
-            ('(?i)(rb|br|r)(""")',
-             bygroups(String.Affix, String.Double), 'tdqs'),
-            ("(?i)(rb|br|r)(''')",
-             bygroups(String.Affix, String.Single), 'tsqs'),
-            ('(?i)(rb|br|r)(")',
-             bygroups(String.Affix, String.Double), 'dqs'),
-            ("(?i)(rb|br|r)(')",
-             bygroups(String.Affix, String.Single), 'sqs'),
-            # non-raw strings
-            ('([uU]?)(""")', bygroups(String.Affix, String.Double),
-             combined('stringescape', 'tdqs')),
-            ("([uU]?)(''')", bygroups(String.Affix, String.Single),
-             combined('stringescape', 'tsqs')),
-            ('([uU]?)(")', bygroups(String.Affix, String.Double),
-             combined('stringescape', 'dqs')),
-            ("([uU]?)(')", bygroups(String.Affix, String.Single),
-             combined('stringescape', 'sqs')),
-            # non-raw bytes
-            ('([bB])(""")', bygroups(String.Affix, String.Double),
-             combined('bytesescape', 'tdqs')),
-            ("([bB])(''')", bygroups(String.Affix, String.Single),
-             combined('bytesescape', 'tsqs')),
-            ('([bB])(")', bygroups(String.Affix, String.Double),
-             combined('bytesescape', 'dqs')),
-            ("([bB])(')", bygroups(String.Affix, String.Single),
-             combined('bytesescape', 'sqs')),
-
-            (r'[^\S\n]+', Text),
-            include('numbers'),
-            (r'!=|==|<<|>>|:=|[-~+/*%=<>&^|.]', Operator),
-            (r'[]{}:(),;[]', Punctuation),
-            (r'(in|is|and|or|not)\b', Operator.Word),
-            include('expr-keywords'),
             include('builtins'),
             include('magicfuncs'),
             include('magicvars'),
+            # raw strings
+            ('(?i)(rb|br|fr|rf|r)(""")',
+             bygroups(String.Affix, String.Double), 'tdqs'),
+            ("(?i)(rb|br|fr|rf|r)(''')",
+             bygroups(String.Affix, String.Single), 'tsqs'),
+            ('(?i)(rb|br|fr|rf|r)(")',
+             bygroups(String.Affix, String.Double), 'dqs'),
+            ("(?i)(rb|br|fr|rf|r)(')",
+             bygroups(String.Affix, String.Single), 'sqs'),
+            # non-raw strings
+            ('([uUbBfF]?)(""")', bygroups(String.Affix, String.Double),
+             combined('stringescape', 'tdqs')),
+            ("([uUbBfF]?)(''')", bygroups(String.Affix, String.Single),
+             combined('stringescape', 'tsqs')),
+            ('([uUbBfF]?)(")', bygroups(String.Affix, String.Double),
+             combined('stringescape', 'dqs')),
+            ("([uUbBfF]?)(')", bygroups(String.Affix, String.Single),
+             combined('stringescape', 'sqs')),
             include('name'),
-        ],
-        'expr-inside-fstring': [
-            (r'[{([]', Punctuation, 'expr-inside-fstring-inner'),
-            # without format specifier
-            (r'(=\s*)?'         # debug (https://bugs.python.org/issue36817)
-             r'(\![sraf])?'     # conversion
-             r'\}', String.Interpol, '#pop'),
-            # with format specifier
-            # we'll catch the remaining '}' in the outer scope
-            (r'(=\s*)?'         # debug (https://bugs.python.org/issue36817)
-             r'(\![sraf])?'     # conversion
-             r':', String.Interpol, '#pop'),
-            (r'\s+', Whitespace),  # allow new lines
-            include('expr'),
-        ],
-        'expr-inside-fstring-inner': [
-            (r'[{([]', Punctuation, 'expr-inside-fstring-inner'),
-            (r'[])}]', Punctuation, '#pop'),
-            (r'\s+', Whitespace),  # allow new lines
-            include('expr'),
-        ],
-        'expr-keywords': [
-            # Based on https://docs.python.org/3/reference/expressions.html
-            (words((
-                'async for', 'await', 'else', 'for', 'if', 'lambda',
-                'yield', 'yield from'), suffix=r'\b'),
-             Keyword),
-            (words(('True', 'False', 'None'), suffix=r'\b'), Keyword.Constant),
+            include('numbers'),
         ],
         'keywords': [
             (words((
@@ -218,32 +140,18 @@ class PythonLexer(RegexLexer):
              Keyword),
             (words(('True', 'False', 'None'), suffix=r'\b'), Keyword.Constant),
         ],
-        'soft-keywords': [
-            # `match`, `case` and `_` soft keywords
-            (r'(^[ \t]*)'              # at beginning of line + possible indentation
-             r'(match|case)\b'         # a possible keyword
-             r'(?![ \t]*(?:'           # not followed by...
-             r'[:,;=^&|@~)\]}]|(?:' +  # characters and keywords that mean this isn't
-             r'|'.join(keyword.kwlist) + r')\b))',                 # pattern matching
-             bygroups(Text, Keyword), 'soft-keywords-inner'),
-        ],
-        'soft-keywords-inner': [
-            # optional `_` keyword
-            (r'(\s+)([^\n_]*)(_\b)', bygroups(Whitespace, using(this), Keyword)),
-            default('#pop')
-        ],
         'builtins': [
             (words((
-                '__import__', 'abs', 'aiter', 'all', 'any', 'bin', 'bool', 'bytearray',
-                'breakpoint', 'bytes', 'callable', 'chr', 'classmethod', 'compile',
-                'complex', 'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval',
-                'filter', 'float', 'format', 'frozenset', 'getattr', 'globals',
-                'hasattr', 'hash', 'hex', 'id', 'input', 'int', 'isinstance',
-                'issubclass', 'iter', 'len', 'list', 'locals', 'map', 'max',
-                'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow',
-                'print', 'property', 'range', 'repr', 'reversed', 'round', 'set',
-                'setattr', 'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super',
-                'tuple', 'type', 'vars', 'zip'), prefix=r'(?<!\.)', suffix=r'\b'),
+                '__import__', 'abs', 'all', 'any', 'bin', 'bool', 'bytearray',
+                'bytes', 'chr', 'classmethod', 'cmp', 'compile', 'complex',
+                'delattr', 'dict', 'dir', 'divmod', 'enumerate', 'eval', 'filter',
+                'float', 'format', 'frozenset', 'getattr', 'globals', 'hasattr',
+                'hash', 'hex', 'id', 'input', 'int', 'isinstance', 'issubclass',
+                'iter', 'len', 'list', 'locals', 'map', 'max', 'memoryview',
+                'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'print',
+                'property', 'range', 'repr', 'reversed', 'round', 'set', 'setattr',
+                'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple',
+                'type', 'vars', 'zip'), prefix=r'(?<!\.)', suffix=r'\b'),
              Name.Builtin),
             (r'(?<!\.)(self|Ellipsis|NotImplemented|cls)\b', Name.Builtin.Pseudo),
             (words((
@@ -268,8 +176,7 @@ class PythonLexer(RegexLexer):
                 'InterruptedError', 'IsADirectoryError', 'NotADirectoryError',
                 'PermissionError', 'ProcessLookupError', 'TimeoutError',
                 # others new in Python 3
-                'StopAsyncIteration', 'ModuleNotFoundError', 'RecursionError',
-                'EncodingWarning'),
+                'StopAsyncIteration'),
                 prefix=r'(?<!\.)', suffix=r'\b'),
              Name.Exception),
         ],
@@ -341,39 +248,16 @@ class PythonLexer(RegexLexer):
             (r'\.', Name.Namespace),
             # if None occurs here, it's "raise x from None", since None can
             # never be a module name
-            (r'None\b', Keyword.Constant, '#pop'),
+            (r'None\b', Name.Builtin.Pseudo, '#pop'),
             (uni_name, Name.Namespace),
             default('#pop'),
         ],
-        'rfstringescape': [
-            (r'\{\{', String.Escape),
-            (r'\}\}', String.Escape),
-        ],
-        'fstringescape': [
-            include('rfstringescape'),
-            include('stringescape'),
-        ],
-        'bytesescape': [
-            (r'\\([\\abfnrtv"\']|\n|x[a-fA-F0-9]{2}|[0-7]{1,3})', String.Escape)
-        ],
         'stringescape': [
-            (r'\\(N\{.*?\}|u[a-fA-F0-9]{4}|U[a-fA-F0-9]{8})', String.Escape),
-            include('bytesescape')
+            (r'\\([\\abfnrtv"\']|\n|N\{.*?\}|u[a-fA-F0-9]{4}|'
+             r'U[a-fA-F0-9]{8}|x[a-fA-F0-9]{2}|[0-7]{1,3})', String.Escape)
         ],
-        'fstrings-single': fstring_rules(String.Single),
-        'fstrings-double': fstring_rules(String.Double),
         'strings-single': innerstring_rules(String.Single),
         'strings-double': innerstring_rules(String.Double),
-        'dqf': [
-            (r'"', String.Double, '#pop'),
-            (r'\\\\|\\"|\\\n', String.Escape),  # included here for raw strings
-            include('fstrings-double')
-        ],
-        'sqf': [
-            (r"'", String.Single, '#pop'),
-            (r"\\\\|\\'|\\\n", String.Escape),  # included here for raw strings
-            include('fstrings-single')
-        ],
         'dqs': [
             (r'"', String.Double, '#pop'),
             (r'\\\\|\\"|\\\n', String.Escape),  # included here for raw strings
@@ -383,16 +267,6 @@ class PythonLexer(RegexLexer):
             (r"'", String.Single, '#pop'),
             (r"\\\\|\\'|\\\n", String.Escape),  # included here for raw strings
             include('strings-single')
-        ],
-        'tdqf': [
-            (r'"""', String.Double, '#pop'),
-            include('fstrings-double'),
-            (r'\n', String.Double)
-        ],
-        'tsqf': [
-            (r"'''", String.Single, '#pop'),
-            include('fstrings-single'),
-            (r'\n', String.Single)
         ],
         'tdqs': [
             (r'"""', String.Double, '#pop'),
@@ -407,8 +281,7 @@ class PythonLexer(RegexLexer):
     }
 
     def analyse_text(text):
-        return shebang_matches(text, r'pythonw?(3(\.\d)?)?') or \
-            'import ' in text[:1000]
+        return shebang_matches(text, r'pythonw?(3(\.\d)?)?')
 
 
 Python3Lexer = PythonLexer
@@ -416,7 +289,7 @@ Python3Lexer = PythonLexer
 
 class Python2Lexer(RegexLexer):
     """
-    For Python 2.x source code.
+    For `Python 2.x <http://www.python.org>`_ source code.
 
     .. versionchanged:: 2.5
        This class has been renamed from ``PythonLexer``.  ``PythonLexer`` now
@@ -425,7 +298,6 @@ class Python2Lexer(RegexLexer):
     """
 
     name = 'Python 2.x'
-    url = 'http://www.python.org'
     aliases = ['python2', 'py2']
     filenames = []  # now taken over by PythonLexer (3.x)
     mimetypes = ['text/x-python2', 'application/x-python2']
@@ -445,11 +317,11 @@ class Python2Lexer(RegexLexer):
 
     tokens = {
         'root': [
-            (r'\n', Whitespace),
+            (r'\n', Text),
             (r'^(\s*)([rRuUbB]{,2})("""(?:.|\n)*?""")',
-             bygroups(Whitespace, String.Affix, String.Doc)),
+             bygroups(Text, String.Affix, String.Doc)),
             (r"^(\s*)([rRuUbB]{,2})('''(?:.|\n)*?''')",
-             bygroups(Whitespace, String.Affix, String.Doc)),
+             bygroups(Text, String.Affix, String.Doc)),
             (r'[^\S\n]+', Text),
             (r'\A#!.+$', Comment.Hashbang),
             (r'#.*$', Comment.Single),
@@ -519,9 +391,9 @@ class Python2Lexer(RegexLexer):
                 'Exception', 'FloatingPointError', 'FutureWarning', 'GeneratorExit',
                 'IOError', 'ImportError', 'ImportWarning', 'IndentationError',
                 'IndexError', 'KeyError', 'KeyboardInterrupt', 'LookupError',
-                'MemoryError', 'NameError',
+                'MemoryError', 'ModuleNotFoundError', 'NameError',
                 'NotImplementedError', 'OSError', 'OverflowError', 'OverflowWarning',
-                'PendingDeprecationWarning', 'ReferenceError',
+                'PendingDeprecationWarning', 'RecursionError', 'ReferenceError',
                 'RuntimeError', 'RuntimeWarning', 'StandardError', 'StopIteration',
                 'SyntaxError', 'SyntaxWarning', 'SystemError', 'SystemExit',
                 'TabError', 'TypeError', 'UnboundLocalError', 'UnicodeDecodeError',
@@ -633,52 +505,18 @@ class Python2Lexer(RegexLexer):
     }
 
     def analyse_text(text):
-        return shebang_matches(text, r'pythonw?2(\.\d)?')
+        return shebang_matches(text, r'pythonw?2(\.\d)?') or \
+            'import ' in text[:1000]
 
-class _PythonConsoleLexerBase(RegexLexer):
-    name = 'Python console session'
-    aliases = ['pycon']
-    mimetypes = ['text/x-python-doctest']
 
-    """Auxiliary lexer for `PythonConsoleLexer`.
-
-    Code tokens are output as ``Token.Other.Code``, traceback tokens as
-    ``Token.Other.Traceback``.
-    """
-    tokens = {
-        'root': [
-            (r'(>>> )(.*\n)', bygroups(Generic.Prompt, Other.Code), 'continuations'),
-            # This happens, e.g., when tracebacks are embedded in documentation;
-            # trailing whitespaces are often stripped in such contexts.
-            (r'(>>>)(\n)', bygroups(Generic.Prompt, Whitespace)),
-            (r'(\^C)?Traceback \(most recent call last\):\n', Other.Traceback, 'traceback'),
-            # SyntaxError starts with this
-            (r'  File "[^"]+", line \d+', Other.Traceback, 'traceback'),
-            (r'.*\n', Generic.Output),
-        ],
-        'continuations': [
-            (r'(\.\.\. )(.*\n)', bygroups(Generic.Prompt, Other.Code)),
-            # See above.
-            (r'(\.\.\.)(\n)', bygroups(Generic.Prompt, Whitespace)),
-            default('#pop'),
-        ],
-        'traceback': [
-            # As soon as we see a traceback, consume everything until the next
-            # >>> prompt.
-            (r'(?=>>>( |$))', Text, '#pop'),
-            (r'(KeyboardInterrupt)(\n)', bygroups(Name.Class, Whitespace)),
-            (r'.*\n', Other.Traceback),
-        ],
-    }
-
-class PythonConsoleLexer(DelegatingLexer):
+class PythonConsoleLexer(Lexer):
     """
     For Python console output or doctests, such as:
 
     .. sourcecode:: pycon
 
         >>> a = 'foo'
-        >>> print(a)
+        >>> print a
         foo
         >>> 1 / 0
         Traceback (most recent call last):
@@ -694,28 +532,72 @@ class PythonConsoleLexer(DelegatingLexer):
         .. versionchanged:: 2.5
            Now defaults to ``True``.
     """
-
     name = 'Python console session'
     aliases = ['pycon']
     mimetypes = ['text/x-python-doctest']
 
     def __init__(self, **options):
-        python3 = get_bool_opt(options, 'python3', True)
-        if python3:
-            pylexer = PythonLexer
-            tblexer = PythonTracebackLexer
+        self.python3 = get_bool_opt(options, 'python3', True)
+        Lexer.__init__(self, **options)
+
+    def get_tokens_unprocessed(self, text):
+        if self.python3:
+            pylexer = PythonLexer(**self.options)
+            tblexer = PythonTracebackLexer(**self.options)
         else:
-            pylexer = Python2Lexer
-            tblexer = Python2TracebackLexer
-        # We have two auxiliary lexers. Use DelegatingLexer twice with
-        # different tokens.  TODO: DelegatingLexer should support this
-        # directly, by accepting a tuplet of auxiliary lexers and a tuple of
-        # distinguishing tokens. Then we wouldn't need this intermediary
-        # class.
-        class _ReplaceInnerCode(DelegatingLexer):
-            def __init__(self, **options):
-                super().__init__(pylexer, _PythonConsoleLexerBase, Other.Code, **options)
-        super().__init__(tblexer, _ReplaceInnerCode, Other.Traceback, **options)
+            pylexer = Python2Lexer(**self.options)
+            tblexer = Python2TracebackLexer(**self.options)
+
+        curcode = ''
+        insertions = []
+        curtb = ''
+        tbindex = 0
+        tb = 0
+        for match in line_re.finditer(text):
+            line = match.group()
+            if line.startswith(u'>>> ') or line.startswith(u'... '):
+                tb = 0
+                insertions.append((len(curcode),
+                                   [(0, Generic.Prompt, line[:4])]))
+                curcode += line[4:]
+            elif line.rstrip() == u'...' and not tb:
+                # only a new >>> prompt can end an exception block
+                # otherwise an ellipsis in place of the traceback frames
+                # will be mishandled
+                insertions.append((len(curcode),
+                                   [(0, Generic.Prompt, u'...')]))
+                curcode += line[3:]
+            else:
+                if curcode:
+                    for item in do_insertions(
+                            insertions, pylexer.get_tokens_unprocessed(curcode)):
+                        yield item
+                    curcode = ''
+                    insertions = []
+                if (line.startswith(u'Traceback (most recent call last):') or
+                        re.match(u'  File "[^"]+", line \\d+\\n$', line)):
+                    tb = 1
+                    curtb = line
+                    tbindex = match.start()
+                elif line == 'KeyboardInterrupt\n':
+                    yield match.start(), Name.Class, line
+                elif tb:
+                    curtb += line
+                    if not (line.startswith(' ') or line.strip() == u'...'):
+                        tb = 0
+                        for i, t, v in tblexer.get_tokens_unprocessed(curtb):
+                            yield tbindex+i, t, v
+                        curtb = ''
+                else:
+                    yield match.start(), Generic.Output, line
+        if curcode:
+            for item in do_insertions(insertions,
+                                      pylexer.get_tokens_unprocessed(curcode)):
+                yield item
+        if curtb:
+            for i, t, v in tblexer.get_tokens_unprocessed(curtb):
+                yield tbindex+i, t, v
+
 
 class PythonTracebackLexer(RegexLexer):
     """
@@ -735,8 +617,8 @@ class PythonTracebackLexer(RegexLexer):
 
     tokens = {
         'root': [
-            (r'\n', Whitespace),
-            (r'^(\^C)?Traceback \(most recent call last\):\n', Generic.Traceback, 'intb'),
+            (r'\n', Text),
+            (r'^Traceback \(most recent call last\):\n', Generic.Traceback, 'intb'),
             (r'^During handling of the above exception, another '
              r'exception occurred:\n\n', Generic.Traceback),
             (r'^The above exception was the direct cause of the '
@@ -746,27 +628,17 @@ class PythonTracebackLexer(RegexLexer):
         ],
         'intb': [
             (r'^(  File )("[^"]+")(, line )(\d+)(, in )(.+)(\n)',
-             bygroups(Text, Name.Builtin, Text, Number, Text, Name, Whitespace)),
+             bygroups(Text, Name.Builtin, Text, Number, Text, Name, Text)),
             (r'^(  File )("[^"]+")(, line )(\d+)(\n)',
-             bygroups(Text, Name.Builtin, Text, Number, Whitespace)),
+             bygroups(Text, Name.Builtin, Text, Number, Text)),
             (r'^(    )(.+)(\n)',
-             bygroups(Whitespace, using(PythonLexer), Whitespace), 'markers'),
+             bygroups(Text, using(PythonLexer), Text)),
             (r'^([ \t]*)(\.\.\.)(\n)',
-             bygroups(Whitespace, Comment, Whitespace)),  # for doctests...
+             bygroups(Text, Comment, Text)),  # for doctests...
             (r'^([^:]+)(: )(.+)(\n)',
-             bygroups(Generic.Error, Text, Name, Whitespace), '#pop'),
-            (r'^([a-zA-Z_][\w.]*)(:?\n)',
-             bygroups(Generic.Error, Whitespace), '#pop'),
-            default('#pop'),
-        ],
-        'markers': [
-            # Either `PEP 657 <https://www.python.org/dev/peps/pep-0657/>`
-            # error locations in Python 3.11+, or single-caret markers
-            # for syntax errors before that.
-            (r'^( {4,})([~^]+)(\n)',
-             bygroups(Whitespace, Punctuation.Marker, Whitespace),
-             '#pop'),
-            default('#pop'),
+             bygroups(Generic.Error, Text, Name, Text), '#pop'),
+            (r'^([a-zA-Z_]\w*)(:?\n)',
+             bygroups(Generic.Error, Text), '#pop')
         ],
     }
 
@@ -802,48 +674,42 @@ class Python2TracebackLexer(RegexLexer):
         ],
         'intb': [
             (r'^(  File )("[^"]+")(, line )(\d+)(, in )(.+)(\n)',
-             bygroups(Text, Name.Builtin, Text, Number, Text, Name, Whitespace)),
+             bygroups(Text, Name.Builtin, Text, Number, Text, Name, Text)),
             (r'^(  File )("[^"]+")(, line )(\d+)(\n)',
-             bygroups(Text, Name.Builtin, Text, Number, Whitespace)),
+             bygroups(Text, Name.Builtin, Text, Number, Text)),
             (r'^(    )(.+)(\n)',
-             bygroups(Text, using(Python2Lexer), Whitespace), 'marker'),
+             bygroups(Text, using(Python2Lexer), Text)),
             (r'^([ \t]*)(\.\.\.)(\n)',
-             bygroups(Text, Comment, Whitespace)),  # for doctests...
+             bygroups(Text, Comment, Text)),  # for doctests...
             (r'^([^:]+)(: )(.+)(\n)',
-             bygroups(Generic.Error, Text, Name, Whitespace), '#pop'),
+             bygroups(Generic.Error, Text, Name, Text), '#pop'),
             (r'^([a-zA-Z_]\w*)(:?\n)',
-             bygroups(Generic.Error, Whitespace), '#pop')
-        ],
-        'marker': [
-            # For syntax errors.
-            (r'( {4,})(\^)', bygroups(Text, Punctuation.Marker), '#pop'),
-            default('#pop'),
+             bygroups(Generic.Error, Text), '#pop')
         ],
     }
 
 
 class CythonLexer(RegexLexer):
     """
-    For Pyrex and Cython source code.
+    For Pyrex and `Cython <http://cython.org>`_ source code.
 
     .. versionadded:: 1.1
     """
 
     name = 'Cython'
-    url = 'http://cython.org'
     aliases = ['cython', 'pyx', 'pyrex']
     filenames = ['*.pyx', '*.pxd', '*.pxi']
     mimetypes = ['text/x-cython', 'application/x-cython']
 
     tokens = {
         'root': [
-            (r'\n', Whitespace),
-            (r'^(\s*)("""(?:.|\n)*?""")', bygroups(Whitespace, String.Doc)),
-            (r"^(\s*)('''(?:.|\n)*?''')", bygroups(Whitespace, String.Doc)),
+            (r'\n', Text),
+            (r'^(\s*)("""(?:.|\n)*?""")', bygroups(Text, String.Doc)),
+            (r"^(\s*)('''(?:.|\n)*?''')", bygroups(Text, String.Doc)),
             (r'[^\S\n]+', Text),
             (r'#.*$', Comment),
             (r'[]{}:(),;[]', Punctuation),
-            (r'\\\n', Whitespace),
+            (r'\\\n', Text),
             (r'\\', Text),
             (r'(in|is|and|or|not)\b', Operator.Word),
             (r'(<)([a-zA-Z0-9.?]+)(>)',
@@ -875,7 +741,7 @@ class CythonLexer(RegexLexer):
         ],
         'keywords': [
             (words((
-                'assert', 'async', 'await', 'break', 'by', 'continue', 'ctypedef', 'del', 'elif',
+                'assert', 'break', 'by', 'continue', 'ctypedef', 'del', 'elif',
                 'else', 'except', 'except?', 'exec', 'finally', 'for', 'fused', 'gil',
                 'global', 'if', 'include', 'lambda', 'nogil', 'pass', 'print',
                 'raise', 'return', 'try', 'while', 'yield', 'as', 'with'), suffix=r'\b'),
@@ -884,14 +750,14 @@ class CythonLexer(RegexLexer):
         ],
         'builtins': [
             (words((
-                '__import__', 'abs', 'all', 'any', 'apply', 'basestring', 'bin', 'bint',
+                '__import__', 'abs', 'all', 'any', 'apply', 'basestring', 'bin',
                 'bool', 'buffer', 'bytearray', 'bytes', 'callable', 'chr',
                 'classmethod', 'cmp', 'coerce', 'compile', 'complex', 'delattr',
                 'dict', 'dir', 'divmod', 'enumerate', 'eval', 'execfile', 'exit',
                 'file', 'filter', 'float', 'frozenset', 'getattr', 'globals',
                 'hasattr', 'hash', 'hex', 'id', 'input', 'int', 'intern', 'isinstance',
                 'issubclass', 'iter', 'len', 'list', 'locals', 'long', 'map', 'max',
-                'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'property', 'Py_ssize_t',
+                'min', 'next', 'object', 'oct', 'open', 'ord', 'pow', 'property',
                 'range', 'raw_input', 'reduce', 'reload', 'repr', 'reversed',
                 'round', 'set', 'setattr', 'slice', 'sorted', 'staticmethod',
                 'str', 'sum', 'super', 'tuple', 'type', 'unichr', 'unicode', 'unsigned',
@@ -1004,7 +870,7 @@ class CythonLexer(RegexLexer):
 
 class DgLexer(RegexLexer):
     """
-    Lexer for dg,
+    Lexer for `dg <http://pyos.github.com/dg>`_,
     a functional and object-oriented programming language
     running on the CPython 3 VM.
 
@@ -1109,7 +975,6 @@ class NumPyLexer(PythonLexer):
     """
 
     name = 'NumPy'
-    url = 'https://numpy.org/'
     aliases = ['numpy']
 
     # override the mimetypes to not inherit them from python
@@ -1192,7 +1057,6 @@ class NumPyLexer(PythonLexer):
                 yield index, token, value
 
     def analyse_text(text):
-        ltext = text[:1000]
         return (shebang_matches(text, r'pythonw?(3(\.\d)?)?') or
-                'import ' in ltext) \
-            and ('import numpy' in ltext or 'from numpy import' in ltext)
+                'import ' in text[:1000]) \
+            and ('import numpy' in text or 'from numpy import' in text)

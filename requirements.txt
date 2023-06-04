@@ -1,2 +1,6 @@
-tox ~= 4.4
-# Other requirements are installed by tox.
+pytest-cov
+pytest-randomly
+pytest
+pyflakes
+pylint
+tox

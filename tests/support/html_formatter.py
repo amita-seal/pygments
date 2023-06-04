@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from pygments.formatters import HtmlFormatter
 
 

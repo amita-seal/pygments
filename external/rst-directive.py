@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     The Pygments reStructuredText directive
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -26,11 +27,11 @@
 
     Look at the `directive documentation`_ to get all the gory details.
 
-    .. _Docutils: https://docutils.sourceforge.io/
+    .. _Docutils: http://docutils.sf.net/
     .. _directive documentation:
-       https://docutils.sourceforge.io/docs/howto/rst-directives.html
+       http://docutils.sourceforge.net/docs/howto/rst-directives.html
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -58,7 +59,7 @@ from pygments import highlight
 from pygments.lexers import get_lexer_by_name, TextLexer
 
 class Pygments(Directive):
-    """ Source code syntax highlighting.
+    """ Source code syntax hightlighting.
     """
     required_arguments = 1
     optional_arguments = 0
@@ -75,7 +76,7 @@ class Pygments(Directive):
             lexer = TextLexer()
         # take an arbitrary option if more than one is given
         formatter = self.options and VARIANTS[list(self.options)[0]] or DEFAULT
-        parsed = highlight('\n'.join(self.content), lexer, formatter)
+        parsed = highlight(u'\n'.join(self.content), lexer, formatter)
         return [nodes.raw('', parsed, format='html')]
 
 directives.register_directive('sourcecode', Pygments)

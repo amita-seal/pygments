@@ -1,18 +1,23 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers.boa
     ~~~~~~~~~~~~~~~~~~~
 
     Lexers for the Boa language.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
+import re
+
 from pygments.lexer import RegexLexer, words
-from pygments.token import String, Comment, Keyword, Name, Number, Operator, \
-    Punctuation, Whitespace
+from pygments.token import String, Comment, Keyword, Name, Number, Text, \
+    Operator, Punctuation
 
 __all__ = ['BoaLexer']
+
+line_re = re.compile('.*?\n')
 
 
 class BoaLexer(RegexLexer):
@@ -87,11 +92,11 @@ class BoaLexer(RegexLexer):
             (classes, Name.Classes),
             (words(operators), Operator),
             (r'[][(),;{}\\.]', Punctuation),
-            (r'"(\\\\|\\[^\\]|[^"\\])*"', String.Double),
-            (r"`(\\\\|\\[^\\]|[^`\\])*`", String.Backtick),
-            (words(string_sep), String.Delimiter),
+            (r'"(\\\\|\\"|[^"])*"', String),
+            (r'`(\\\\|\\`|[^`])*`', String),
+            (words(string_sep), String.Delimeter),
             (r'[a-zA-Z_]+', Name.Variable),
             (r'[0-9]+', Number.Integer),
-            (r'\s+', Whitespace),  # Whitespace
+            (r'\s+?', Text),  # Whitespace
         ]
     }

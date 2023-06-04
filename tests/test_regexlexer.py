@@ -1,14 +1,15 @@
+# -*- coding: utf-8 -*-
 """
     Pygments regex lexer tests
     ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
 import pytest
 
-from pygments.token import Text, Whitespace
+from pygments.token import Text
 from pygments.lexer import RegexLexer, default
 
 
@@ -47,7 +48,7 @@ def test_tuple(lexer):
 def test_multiline(lexer):
     toks = list(lexer.get_tokens_unprocessed('a\ne'))
     assert toks == [
-        (0, Text.Root, 'a'), (1, Whitespace, '\n'), (2, Text.Root, 'e')]
+        (0, Text.Root, 'a'), (1, Text, u'\n'), (2, Text.Root, 'e')]
 
 
 def test_default(lexer):

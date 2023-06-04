@@ -15,7 +15,4 @@
 /doc/_build
 /.coverage
 /htmlcov
-/.vscode
-venv/
-.venv/
-.DS_Store
+/tests/examplefiles/output

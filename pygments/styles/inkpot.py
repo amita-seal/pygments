@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
     pygments.styles.inkpot
     ~~~~~~~~~~~~~~~~~~~~~~
 
     A highlighting style for Pygments, inspired by the Inkpot theme for VIM.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -14,9 +15,8 @@ from pygments.token import Text, Other, Keyword, Name, Comment, String, \
 
 
 class InkPotStyle(Style):
-
     background_color = "#1e1e27"
-
+    default_style = ""
     styles = {
         Text:                      "#cfbfad",
         Other:                     "#cfbfad",
@@ -59,7 +59,6 @@ class InkPotStyle(Style):
         Generic.Error:             "#FF0000",
         Generic.Emph:              "italic",
         Generic.Strong:            "bold",
-        Generic.EmphStrong:        "bold italic",
         Generic.Prompt:            "bold #000080",
         Generic.Output:            "#888",
         Generic.Traceback:         "#04D",

@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers.csound
     ~~~~~~~~~~~~~~~~~~~~~~
 
     Lexers for Csound languages.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -13,7 +14,7 @@ import re
 from pygments.lexer import RegexLexer, bygroups, default, include, using, words
 from pygments.token import Comment, Error, Keyword, Name, Number, Operator, Punctuation, \
     String, Text, Whitespace
-from pygments.lexers._csound_builtins import OPCODES, DEPRECATED_OPCODES, REMOVED_OPCODES
+from pygments.lexers._csound_builtins import OPCODES, DEPRECATED_OPCODES
 from pygments.lexers.html import HtmlLexer
 from pygments.lexers.python import PythonLexer
 from pygments.lexers.scripting import LuaLexer
@@ -24,14 +25,12 @@ newline = (r'((?:(?:;|//).*)*)(\n)', bygroups(Comment.Single, Text))
 
 
 class CsoundLexer(RegexLexer):
-    url = 'https://csound.com/'
-
     tokens = {
         'whitespace': [
-            (r'[ \t]+', Whitespace),
+            (r'[ \t]+', Text),
             (r'/[*](?:.|\n)*?[*]/', Comment.Multiline),
             (r'(?:;|//).*$', Comment.Single),
-            (r'(\\)(\n)', bygroups(Text, Whitespace))
+            (r'(\\)(\n)', bygroups(Whitespace, Text))
         ],
 
         'preprocessor directives': [
@@ -52,7 +51,7 @@ class CsoundLexer(RegexLexer):
         ],
 
         'define directive': [
-            (r'\n', Whitespace),
+            (r'\n', Text),
             include('whitespace'),
             (r'([A-Z_a-z]\w*)(\()', bygroups(Comment.Preproc, Punctuation),
              ('#pop', 'macro parameter name list')),
@@ -65,7 +64,7 @@ class CsoundLexer(RegexLexer):
             (r'\)', Punctuation, ('#pop', 'before macro body'))
         ],
         'before macro body': [
-            (r'\n', Whitespace),
+            (r'\n', Text),
             include('whitespace'),
             (r'#', Punctuation, ('#pop', 'macro body'))
         ],
@@ -146,11 +145,11 @@ class CsoundScoreLexer(CsoundLexer):
 
     tokens = {
         'root': [
-            (r'\n', Whitespace),
+            (r'\n', Text),
             include('whitespace and macro uses'),
             include('preprocessor directives'),
 
-            (r'[aBbCdefiqstvxy]', Keyword),
+            (r'[abCdefiqstvxy]', Keyword),
             # There is also a w statement that is generated internally and should not be
             # used; see https://github.com/csound/csound/issues/750.
 
@@ -174,7 +173,7 @@ class CsoundScoreLexer(CsoundLexer):
         'mark statement': [
             include('whitespace and macro uses'),
             (r'[A-Z_a-z]\w*', Name.Label),
-            (r'\n', Whitespace, '#pop')
+            (r'\n', Text, '#pop')
         ],
 
         'loop after left brace': [
@@ -190,8 +189,8 @@ class CsoundScoreLexer(CsoundLexer):
             include('root')
         ],
 
-        # Braced strings are not allowed in Csound scores, but this is needed because the
-        # superclass includes it.
+        # Braced strings are not allowed in Csound scores, but this is needed
+        # because the superclass includes it.
         'braced string': [
             (r'\}\}', String, '#pop'),
             (r'[^}]|\}(?!\})', String)
@@ -221,7 +220,7 @@ class CsoundOrchestraLexer(CsoundLexer):
         type_annotation_token = Keyword.Type
 
         name = match.group(1)
-        if name in OPCODES or name in DEPRECATED_OPCODES or name in REMOVED_OPCODES:
+        if name in OPCODES or name in DEPRECATED_OPCODES:
             yield match.start(), Name.Builtin, name
         elif name in lexer.user_defined_opcodes:
             yield match.start(), Name.Function, name
@@ -240,9 +239,9 @@ class CsoundOrchestraLexer(CsoundLexer):
 
     tokens = {
         'root': [
-            (r'\n', Whitespace),
+            (r'\n', Text),
 
-            (r'^([ \t]*)(\w+)(:)([ \t]+|$)', bygroups(Whitespace, Name.Label, Punctuation, Whitespace)),
+            (r'^([ \t]*)(\w+)(:)(?:[ \t]+|$)', bygroups(Text, Name.Label, Punctuation)),
 
             include('whitespace and macro uses'),
             include('preprocessor directives'),
@@ -293,13 +292,13 @@ class CsoundOrchestraLexer(CsoundLexer):
             include('whitespace and macro uses'),
             (r'\d+|[A-Z_a-z]\w*', Name.Function),
             (r'[+,]', Punctuation),
-            (r'\n', Whitespace, '#pop')
+            (r'\n', Text, '#pop')
         ],
 
         'after opcode keyword': [
             include('whitespace and macro uses'),
             (r'[A-Z_a-z]\w*', opcode_name_callback, ('#pop', 'opcode type signatures')),
-            (r'\n', Whitespace, '#pop')
+            (r'\n', Text, '#pop')
         ],
         'opcode type signatures': [
             include('whitespace and macro uses'),
@@ -308,7 +307,7 @@ class CsoundOrchestraLexer(CsoundLexer):
             (r'0|[afijkKoOpPStV\[\]]+', Keyword.Type),
 
             (r',', Punctuation),
-            (r'\n', Whitespace, '#pop')
+            (r'\n', Text, '#pop')
         ],
 
         'quoted string': [
@@ -338,17 +337,15 @@ class CsoundOrchestraLexer(CsoundLexer):
         #   prints          https://csound.com/docs/manual/prints.html
         #   sprintf         https://csound.com/docs/manual/sprintf.html
         #   sprintfk        https://csound.com/docs/manual/sprintfk.html
-        # work with strings that contain format specifiers. In addition, these opcodes’
-        # handling of format specifiers is inconsistent:
-        #   - fprintks and fprints accept %a and %A specifiers, and accept %s specifiers
-        #     starting in Csound 6.15.0.
-        #   - printks and prints accept %a and %A specifiers, but don’t accept %s
-        #     specifiers.
-        #   - printf, printf_i, sprintf, and sprintfk don’t accept %a and %A specifiers,
-        #     but accept %s specifiers.
+        # work with strings that contain format specifiers. In addition, these
+        # opcodes’ handling of format specifiers is inconsistent:
+        #   - fprintks, fprints, printks, and prints do accept %a and %A
+        #     specifiers, but can’t accept %s specifiers.
+        #   - printf, printf_i, sprintf, and sprintfk don’t accept %a and %A
+        #     specifiers, but can accept %s specifiers.
         # See https://github.com/csound/csound/issues/747 for more information.
         'format specifiers': [
-            (r'%[#0\- +]*\d*(?:\.\d+)?[AE-GXac-giosux]', String.Interpol),
+            (r'%[#0\- +]*\d*(?:\.\d+)?[diuoxXfFeEgGaAcs]', String.Interpol),
             (r'%%', String.Escape)
         ],
 
@@ -378,7 +375,7 @@ class CsoundOrchestraLexer(CsoundLexer):
             include('whitespace and macro uses'),
             (r'"', String, 'quoted string'),
             (r'\{\{', String, 'Csound score'),
-            (r'\n', Whitespace, '#pop')
+            (r'\n', Text, '#pop')
         ],
         'Csound score': [
             (r'\}\}', String, '#pop'),
@@ -389,7 +386,7 @@ class CsoundOrchestraLexer(CsoundLexer):
             include('whitespace and macro uses'),
             (r'"', String, 'quoted string'),
             (r'\{\{', String, 'Python'),
-            (r'\n', Whitespace, '#pop')
+            (r'\n', Text, '#pop')
         ],
         'Python': [
             (r'\}\}', String, '#pop'),
@@ -400,7 +397,7 @@ class CsoundOrchestraLexer(CsoundLexer):
             include('whitespace and macro uses'),
             (r'"', String, 'quoted string'),
             (r'\{\{', String, 'Lua'),
-            (r'\n', Whitespace, '#pop')
+            (r'\n', Text, '#pop')
         ],
         'Lua': [
             (r'\}\}', String, '#pop'),
@@ -455,12 +452,12 @@ class CsoundDocumentLexer(RegexLexer):
         ],
 
         'tag': [
-            (r'\s+', Whitespace),
+            (r'\s+', Text),
             (r'[\w.:-]+\s*=', Name.Attribute, 'attr'),
             (r'/?\s*>', Name.Tag, '#pop')
         ],
         'attr': [
-            (r'\s+', Whitespace),
+            (r'\s+', Text),
             (r'".*?"', String, '#pop'),
             (r"'.*?'", String, '#pop'),
             (r'[^\s>]+', String, '#pop')

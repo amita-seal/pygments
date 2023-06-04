@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
     Checker for file headers
     ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -6,9 +7,11 @@
     Make sure each Python file has a correct file header
     including copyright and license information.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
+
+from __future__ import print_function
 
 import io
 import os
@@ -33,11 +36,11 @@ def checker(*suffixes, **kwds):
 
 
 name_mail_re = r'[\w ]+(<.*?>)?'
-copyright_re = re.compile(r'^    :copyright: Copyright 2006-2023 by '
-                          r'the Pygments team, see AUTHORS\.$')
+copyright_re = re.compile(r'^    :copyright: Copyright 2006-2019 by '
+                          r'the Pygments team, see AUTHORS\.$', re.UNICODE)
 copyright_2_re = re.compile(r'^                %s(, %s)*[,.]$' %
-                            (name_mail_re, name_mail_re))
-is_const_re = re.compile(r'if.*?==\s+(None|False|True)\b')
+                            (name_mail_re, name_mail_re), re.UNICODE)
+is_const_re  = re.compile(r'if.*?==\s+(None|False|True)\b')
 
 misspellings = ["developement", "adress", "verificate",  # ALLOW-MISSPELLING
                 "informations", "unlexer"]               # ALLOW-MISSPELLING
@@ -50,6 +53,8 @@ def check_syntax(fn, lines):
         return
     if '#!/' in lines[0]:
         lines = lines[1:]
+    if 'coding:' in lines[0]:
+        lines = lines[1:]
     try:
         compile('\n'.join(lines), fn, "exec")
     except SyntaxError as err:
@@ -59,6 +64,8 @@ def check_syntax(fn, lines):
 @checker('.py')
 def check_style_and_encoding(fn, lines):
     for lno, line in enumerate(lines):
+        if len(line) > 110:
+            yield lno+1, "line too long"
         if is_const_re.search(line):
             yield lno+1, 'using == None/True/False'
 
@@ -73,35 +80,38 @@ def check_fileheader(fn, lines):
 
     llist = []
     docopen = False
-    for lno, line in enumerate(lines):
-        llist.append(line)
+    for lno, l in enumerate(lines):
+        llist.append(l)
         if lno == 0:
-            if line != '"""' and line != 'r"""':
-                yield 2, f'missing docstring begin ("""), found {line!r}'
+            if l != '# -*- coding: utf-8 -*-':
+                yield 1, "missing coding declaration"
+        elif lno == 1:
+            if l != '"""' and l != 'r"""':
+                yield 2, 'missing docstring begin (""")'
             else:
                 docopen = True
         elif docopen:
-            if line == '"""':
+            if l == '"""':
                 # end of docstring
-                if lno <= 3:
+                if lno <= 4:
                     yield lno+c, "missing module name in docstring"
                 break
 
-            if line != "" and line[:4] != '    ' and docopen:
+            if l != "" and l[:4] != '    ' and docopen:
                 yield lno+c, "missing correct docstring indentation"
 
-            if lno == 1:
+            if lno == 2:
                 # if not in package, don't check the module name
                 modname = fn[:-3].replace('/', '.').replace('.__init__', '')
                 while modname:
-                    if line.lower()[4:] == modname:
+                    if l.lower()[4:] == modname:
                         break
                     modname = '.'.join(modname.split('.')[1:])
                 else:
                     yield 3, "wrong module name in docstring heading"
-                modnamelen = len(line.strip())
-            elif lno == 2:
-                if line.strip() != modnamelen * "~":
+                modnamelen = len(l.strip())
+            elif lno == 3:
+                if l.strip() != modnamelen * "~":
                     yield 4, "wrong module name underline, should be ~~~...~"
 
     else:
@@ -146,10 +156,14 @@ def main(argv):
     num = 0
     out = io.StringIO()
 
+    # TODO: replace os.walk run with iteration over output of
+    #       `svn list -R`.
+
     for root, dirs, files in os.walk(path):
-        for excl in ['.tox', '.git', 'examplefiles']:
-            if excl in dirs:
-                dirs.remove(excl)
+        if '.hg' in dirs:
+            dirs.remove('.hg')
+        if 'examplefiles' in dirs:
+            dirs.remove('examplefiles')
         if '-i' in opts and abspath(root) in opts['-i']:
             del dirs[:]
             continue
@@ -176,7 +190,7 @@ def main(argv):
             try:
                 with open(fn, 'rb') as f:
                     lines = f.read().decode('utf-8').splitlines()
-            except OSError as err:
+            except (IOError, OSError) as err:
                 print("%s: cannot open: %s" % (fn, err))
                 num += 1
                 continue
@@ -185,7 +199,7 @@ def main(argv):
                 if not in_pygments_pkg and checker.only_pkg:
                     continue
                 for lno, msg in checker(fn, lines):
-                    print('%s:%d: %s' % (fn, lno, msg), file=out)
+                    print(u"%s:%d: %s" % (fn, lno, msg), file=out)
                     num += 1
     if verbose:
         print()

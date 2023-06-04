@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
     pygments.styles.bw
     ~~~~~~~~~~~~~~~~~~
 
     Simple black/white only style.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -16,6 +17,7 @@ from pygments.token import Keyword, Name, Comment, String, Error, \
 class BlackWhiteStyle(Style):
 
     background_color = "#ffffff"
+    default_style = ""
 
     styles = {
         Comment:                   "italic",
@@ -41,7 +43,6 @@ class BlackWhiteStyle(Style):
         Generic.Subheading:        "bold",
         Generic.Emph:              "italic",
         Generic.Strong:            "bold",
-        Generic.EmphStrong:        "bold italic",
         Generic.Prompt:            "bold",
 
         Error:                     "border:#FF0000"

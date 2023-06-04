@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers.html
     ~~~~~~~~~~~~~~~~~~~~
 
     Lexers for HTML, XML and related markup.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -13,7 +14,7 @@ import re
 from pygments.lexer import RegexLexer, ExtendedRegexLexer, include, bygroups, \
     default, using
 from pygments.token import Text, Comment, Operator, Keyword, Name, String, \
-    Punctuation, Whitespace
+    Punctuation
 from pygments.util import looks_like_xml, html_doctype_matches
 
 from pygments.lexers.javascript import JavascriptLexer
@@ -32,7 +33,6 @@ class HtmlLexer(RegexLexer):
     """
 
     name = 'HTML'
-    url = 'https://html.spec.whatwg.org/'
     aliases = ['html']
     filenames = ['*.html', '*.htm', '*.xhtml', '*.xslt']
     mimetypes = ['text/html', 'application/xhtml+xml']
@@ -43,7 +43,7 @@ class HtmlLexer(RegexLexer):
             ('[^<&]+', Text),
             (r'&\S*?;', Name.Entity),
             (r'\<\!\[CDATA\[.*?\]\]\>', Comment.Preproc),
-            (r'<!--.*?-->', Comment.Multiline),
+            ('<!--', Comment, 'comment'),
             (r'<\?.*?\?>', Comment.Preproc),
             ('<![^>]*>', Comment.Preproc),
             (r'(<)(\s*)(script)(\s*)',
@@ -60,6 +60,11 @@ class HtmlLexer(RegexLexer):
              bygroups(Punctuation, Text, Punctuation, Text, Name.Tag, Text,
                       Punctuation)),
         ],
+        'comment': [
+            ('[^-]+', Comment),
+            ('-->', Comment, '#pop'),
+            ('-', Comment),
+        ],
         'tag': [
             (r'\s+', Text),
             (r'([\w:-]+\s*)(=)(\s*)', bygroups(Name.Attribute, Operator, Text),
@@ -72,24 +77,12 @@ class HtmlLexer(RegexLexer):
              bygroups(Punctuation, Text, Punctuation, Text, Name.Tag, Text,
                       Punctuation), '#pop'),
             (r'.+?(?=<\s*/\s*script\s*>)', using(JavascriptLexer)),
-            # fallback cases for when there is no closing script tag
-            # first look for newline and then go back into root state
-            # if that fails just read the rest of the file
-            # this is similar to the error handling logic in lexer.py
-            (r'.+?\n', using(JavascriptLexer), '#pop'),
-            (r'.+', using(JavascriptLexer), '#pop'),
         ],
         'style-content': [
             (r'(<)(\s*)(/)(\s*)(style)(\s*)(>)',
              bygroups(Punctuation, Text, Punctuation, Text, Name.Tag, Text,
                       Punctuation),'#pop'),
             (r'.+?(?=<\s*/\s*style\s*>)', using(CssLexer)),
-            # fallback cases for when there is no closing style tag
-            # first look for newline and then go back into root state
-            # if that fails just read the rest of the file
-            # this is similar to the error handling logic in lexer.py
-            (r'.+?\n', using(CssLexer), '#pop'),
-            (r'.+', using(CssLexer), '#pop'),
         ],
         'attr': [
             ('".*?"', String, '#pop'),
@@ -196,7 +189,7 @@ class XmlLexer(RegexLexer):
     Generic lexer for XML (eXtensible Markup Language).
     """
 
-    flags = re.MULTILINE | re.DOTALL
+    flags = re.MULTILINE | re.DOTALL | re.UNICODE
 
     name = 'XML'
     aliases = ['xml']
@@ -207,23 +200,27 @@ class XmlLexer(RegexLexer):
 
     tokens = {
         'root': [
-            (r'[^<&\s]+', Text),
-            (r'[^<&\S]+', Whitespace),
+            ('[^<&]+', Text),
             (r'&\S*?;', Name.Entity),
             (r'\<\!\[CDATA\[.*?\]\]\>', Comment.Preproc),
-            (r'<!--.*?-->', Comment.Multiline),
+            ('<!--', Comment, 'comment'),
             (r'<\?.*?\?>', Comment.Preproc),
             ('<![^>]*>', Comment.Preproc),
             (r'<\s*[\w:.-]+', Name.Tag, 'tag'),
             (r'<\s*/\s*[\w:.-]+\s*>', Name.Tag),
         ],
+        'comment': [
+            ('[^-]+', Comment),
+            ('-->', Comment, '#pop'),
+            ('-', Comment),
+        ],
         'tag': [
-            (r'\s+', Whitespace),
+            (r'\s+', Text),
             (r'[\w.:-]+\s*=', Name.Attribute, 'attr'),
             (r'/?\s*>', Name.Tag, '#pop'),
         ],
         'attr': [
-            (r'\s+', Whitespace),
+            (r'\s+', Text),
             ('".*?"', String, '#pop'),
             ("'.*?'", String, '#pop'),
             (r'[^\s>]+', String, '#pop'),
@@ -287,7 +284,7 @@ class HamlLexer(ExtendedRegexLexer):
     flags = re.IGNORECASE
     # Haml can include " |\n" anywhere,
     # which is ignored and used to wrap long lines.
-    # To accommodate this, use this custom faux dot instead.
+    # To accomodate this, use this custom faux dot instead.
     _dot = r'(?: \|\n(?=.* \|)|.)'
 
     # In certain places, a comma at the end of the line
@@ -360,8 +357,8 @@ class HamlLexer(ExtendedRegexLexer):
             (r'\w+', Name.Variable, '#pop'),
             (r'@\w+', Name.Variable.Instance, '#pop'),
             (r'\$\w+', Name.Variable.Global, '#pop'),
-            (r"'(\\\\|\\[^\\]|[^'\\\n])*'", String, '#pop'),
-            (r'"(\\\\|\\[^\\]|[^"\\\n])*"', String, '#pop'),
+            (r"'(\\\\|\\'|[^'\n])*'", String, '#pop'),
+            (r'"(\\\\|\\"|[^"\n])*"', String, '#pop'),
         ],
 
         'html-comment-block': [
@@ -472,8 +469,8 @@ class ScamlLexer(ExtendedRegexLexer):
             (r'\w+', Name.Variable, '#pop'),
             (r'@\w+', Name.Variable.Instance, '#pop'),
             (r'\$\w+', Name.Variable.Global, '#pop'),
-            (r"'(\\\\|\\[^\\]|[^'\\\n])*'", String, '#pop'),
-            (r'"(\\\\|\\[^\\]|[^"\\\n])*"', String, '#pop'),
+            (r"'(\\\\|\\'|[^'\n])*'", String, '#pop'),
+            (r'"(\\\\|\\"|[^"\n])*"', String, '#pop'),
         ],
 
         'html-comment-block': [
@@ -581,8 +578,8 @@ class PugLexer(ExtendedRegexLexer):
             (r'\w+', Name.Variable, '#pop'),
             (r'@\w+', Name.Variable.Instance, '#pop'),
             (r'\$\w+', Name.Variable.Global, '#pop'),
-            (r"'(\\\\|\\[^\\]|[^'\\\n])*'", String, '#pop'),
-            (r'"(\\\\|\\[^\\]|[^"\\\n])*"', String, '#pop'),
+            (r"'(\\\\|\\'|[^'\n])*'", String, '#pop'),
+            (r'"(\\\\|\\"|[^"\n])*"', String, '#pop'),
         ],
 
         'html-comment-block': [

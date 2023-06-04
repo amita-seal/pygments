@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 """
     Lexing error finder
     ~~~~~~~~~~~~~~~~~~~
@@ -7,13 +8,14 @@
     the text where Error tokens are being generated, along
     with some context.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
+from __future__ import print_function
+
 import os
 import sys
-import struct
 
 # always prefer Pygments from source if exists
 srcpath = os.path.join(os.path.dirname(__file__), '..')
@@ -21,9 +23,10 @@ if os.path.isdir(os.path.join(srcpath, 'pygments')):
     sys.path.insert(0, srcpath)
 
 
-from pygments.lexer import ExtendedRegexLexer, LexerContext
+from pygments.lexer import RegexLexer, ExtendedRegexLexer, LexerContext, \
+    ProfilingRegexLexer, ProfilingRegexLexerMeta
 from pygments.lexers import get_lexer_by_name, find_lexer_class, \
-    find_lexer_class_for_filename, guess_lexer
+    find_lexer_class_for_filename
 from pygments.token import Error, Text, _TokenType
 from pygments.cmdline import _parse_options
 
@@ -35,7 +38,7 @@ class DebuggingRegexLexer(ExtendedRegexLexer):
         """
         Split ``text`` into (tokentype, text) pairs.
 
-        ``stack`` is the initial stack (default: ``['root']``)
+        ``stack`` is the inital stack (default: ``['root']``)
         """
         tokendefs = self._tokens
         self.ctx = ctx = LexerContext(text, 0)
@@ -51,10 +54,12 @@ class DebuggingRegexLexer(ExtendedRegexLexer):
                             ctx.pos = m.end()
                         else:
                             if not isinstance(self, ExtendedRegexLexer):
-                                yield from action(self, m)
+                                for item in action(self, m):
+                                    yield item
                                 ctx.pos = m.end()
                             else:
-                                yield from action(self, m, ctx)
+                                for item in action(self, m, ctx):
+                                    yield item
                                 if not new_state:
                                     # altered the state stack?
                                     statetokens = tokendefs[ctx.stack[-1]]
@@ -85,7 +90,7 @@ class DebuggingRegexLexer(ExtendedRegexLexer):
                         # at EOL, reset state to 'root'
                         ctx.stack = ['root']
                         statetokens = tokendefs['root']
-                        yield ctx.pos, Text, '\n'
+                        yield ctx.pos, Text, u'\n'
                         ctx.pos += 1
                         continue
                     yield ctx.pos, Error, text[ctx.pos]
@@ -94,64 +99,9 @@ class DebuggingRegexLexer(ExtendedRegexLexer):
                     break
 
 
-def decode_atheris(bstr):
-    """Decode a byte string into a Unicode string using the algorithm
-    of Google's Atheris fuzzer library, which aims to produce a wide
-    range of possible Unicode inputs.
-
-    Corresponds to ConsumeUnicodeImpl() with filter_surrogates=false in
-    https://github.com/google/atheris/blob/master/fuzzed_data_provider.cc
-    """
-    if len(bstr) < 2:
-        return ''
-    # The first byte only selects if the rest is decoded as ascii, "utf-16" or "utf-32"
-    spec, bstr = bstr[0], bstr[1:]
-    if spec & 1:  # pure ASCII
-        return ''.join(chr(ch & 0x7f) for ch in bstr)
-    elif spec & 2:  # UTF-16
-        bstr = bstr if len(bstr) % 2 == 0 else bstr[:-1]
-        return bstr.decode('utf16')
-
-    # else UTF-32
-    def valid_codepoint(ch):
-        ch &= 0x1fffff
-        if ch & 0x100000:
-            ch &= ~0x0f0000
-        return chr(ch)
-
-    chars = struct.unpack('%dI%dx' % divmod(len(bstr), 4), bstr)
-    return ''.join(map(valid_codepoint), chars)
-
-
 def main(fn, lexer=None, options={}):
-    if fn == '-':
-        text = sys.stdin.read()
-    else:
-        with open(fn, 'rb') as fp:
-            text = fp.read()
-        if decode_strategy == 'latin1':
-            try:
-                text = text.decode('utf8')
-            except UnicodeError:
-                print('Warning: non-UTF8 input, using latin1')
-                text = text.decode('latin1')
-        elif decode_strategy == 'utf8-ignore':
-            try:
-                text = text.decode('utf8')
-            except UnicodeError:
-                print('Warning: ignoring non-UTF8 bytes in input')
-                text = text.decode('utf8', 'ignore')
-        elif decode_strategy == 'atheris':
-            text = decode_atheris(text)
-
-    text = text.strip('\n') + '\n'
-
     if lexer is not None:
         lxcls = get_lexer_by_name(lexer).__class__
-    elif guess:
-        lxcls = guess_lexer(text).__class__
-        print('Using lexer: %s (%s.%s)' % (lxcls.name, lxcls.__module__,
-                                           lxcls.__name__))
     else:
         lxcls = find_lexer_class_for_filename(os.path.basename(fn))
         if lxcls is None:
@@ -183,6 +133,12 @@ def main(fn, lexer=None, options={}):
 
     lx = lxcls(**options)
     lno = 1
+    if fn == '-':
+        text = sys.stdin.read()
+    else:
+        with open(fn, 'rb') as fp:
+            text = fp.read().decode('utf-8')
+    text = text.strip('\n') + '\n'
     tokens = []
     states = []
 
@@ -190,8 +146,7 @@ def main(fn, lexer=None, options={}):
         reprs = list(map(repr, tok))
         print('   ' + reprs[1] + ' ' + ' ' * (29-len(reprs[1])) + reprs[0], end=' ')
         if debug_lexer:
-            print(' ' + ' ' * (29-len(reprs[0])) + ' : '.join(state)
-                  if state else '', end=' ')
+            print(' ' + ' ' * (29-len(reprs[0])) + ' : '.join(state) if state else '', end=' ')
         print()
 
     for type, val in lx.get_tokens(text):
@@ -206,10 +161,10 @@ def main(fn, lexer=None, options={}):
                     else:
                         show_token(tokens[i], None)
             print('Error token:')
-            vlen = len(repr(val))
+            l = len(repr(val))
             print('   ' + repr(val), end=' ')
             if debug_lexer and hasattr(lx, 'ctx'):
-                print(' ' * (60-vlen) + ' : '.join(lx.ctx.stack), end=' ')
+                print(' ' * (60-l) + ' : '.join(lx.ctx.stack), end=' ')
             print()
             print()
             return 1
@@ -237,11 +192,6 @@ Selecting lexer and options:
 
     -l NAME         use lexer named NAME (default is to guess from
                     the given filenames)
-    -g              guess lexer from content
-    -u              if input is non-utf8, use "ignore" handler instead
-                    of using latin1 encoding
-    -U              use Atheris fuzzer's method of converting
-                    byte input to Unicode
     -O OPTIONSTR    use lexer options parsed from OPTIONSTR
 
 Debugging lexing errors:
@@ -259,7 +209,6 @@ Profiling:
                     column 4, the time per call)
 ''')
 
-
 num = 10
 showall = False
 ignerror = False
@@ -267,12 +216,10 @@ lexer = None
 options = {}
 profile = False
 profsort = 4
-guess = False
-decode_strategy = 'latin1'
 
 if __name__ == '__main__':
     import getopt
-    opts, args = getopt.getopt(sys.argv[1:], 'n:l:aepO:s:hguU')
+    opts, args = getopt.getopt(sys.argv[1:], 'n:l:aepO:s:h')
     for opt, val in opts:
         if opt == '-n':
             num = int(val)
@@ -288,12 +235,6 @@ if __name__ == '__main__':
             profsort = int(val)
         elif opt == '-O':
             options = _parse_options([val])
-        elif opt == '-g':
-            guess = True
-        elif opt == '-u':
-            decode_strategy = 'utf8-ignore'
-        elif opt == '-U':
-            decode_strategy = 'atheris'
         elif opt == '-h':
             print_help()
             sys.exit(0)

@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers
     ~~~~~~~~~~~~~~~
 
     Pygments lexers.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -17,7 +18,7 @@ from os.path import basename
 from pygments.lexers._mapping import LEXERS
 from pygments.modeline import get_filetype_from_buffer
 from pygments.plugin import find_plugin_lexers
-from pygments.util import ClassNotFound, guess_decode
+from pygments.util import ClassNotFound, itervalues, guess_decode, text_type
 
 COMPAT = {
     'Python3Lexer': 'PythonLexer',
@@ -47,29 +48,25 @@ def _load_lexers(module_name):
         _lexer_cache[cls.name] = cls
 
 
-def get_all_lexers(plugins=True):
+def get_all_lexers():
     """Return a generator of tuples in the form ``(name, aliases,
     filenames, mimetypes)`` of all know lexers.
-
-    If *plugins* is true (the default), plugin lexers supplied by entrypoints
-    are also returned.  Otherwise, only builtin ones are considered.
     """
-    for item in LEXERS.values():
+    for item in itervalues(LEXERS):
         yield item[1:]
-    if plugins:
-        for lexer in find_plugin_lexers():
-            yield lexer.name, lexer.aliases, lexer.filenames, lexer.mimetypes
+    for lexer in find_plugin_lexers():
+        yield lexer.name, lexer.aliases, lexer.filenames, lexer.mimetypes
 
 
 def find_lexer_class(name):
-    """
-    Return the `Lexer` subclass that with the *name* attribute as given by
-    the *name* argument.
+    """Lookup a lexer class by name.
+
+    Return None if not found.
     """
     if name in _lexer_cache:
         return _lexer_cache[name]
     # lookup builtin lexers
-    for module_name, lname, aliases, _, _ in LEXERS.values():
+    for module_name, lname, aliases, _, _ in itervalues(LEXERS):
         if name == lname:
             _load_lexers(module_name)
             return _lexer_cache[name]
@@ -80,21 +77,16 @@ def find_lexer_class(name):
 
 
 def find_lexer_class_by_name(_alias):
-    """
-    Return the `Lexer` subclass that has `alias` in its aliases list, without
-    instantiating it.
+    """Lookup a lexer class by alias.
 
     Like `get_lexer_by_name`, but does not instantiate the class.
-
-    Will raise :exc:`pygments.util.ClassNotFound` if no lexer with that alias is
-    found.
 
     .. versionadded:: 2.2
     """
     if not _alias:
         raise ClassNotFound('no lexer for alias %r found' % _alias)
     # lookup builtin lexers
-    for module_name, name, aliases, _, _ in LEXERS.values():
+    for module_name, name, aliases, _, _ in itervalues(LEXERS):
         if _alias.lower() in aliases:
             if name not in _lexer_cache:
                 _load_lexers(module_name)
@@ -107,19 +99,15 @@ def find_lexer_class_by_name(_alias):
 
 
 def get_lexer_by_name(_alias, **options):
-    """
-    Return an instance of a `Lexer` subclass that has `alias` in its
-    aliases list. The lexer is given the `options` at its
-    instantiation.
+    """Get a lexer by an alias.
 
-    Will raise :exc:`pygments.util.ClassNotFound` if no lexer with that alias is
-    found.
+    Raises ClassNotFound if not found.
     """
     if not _alias:
         raise ClassNotFound('no lexer for alias %r found' % _alias)
 
     # lookup builtin lexers
-    for module_name, name, aliases, _, _ in LEXERS.values():
+    for module_name, name, aliases, _, _ in itervalues(LEXERS):
         if _alias.lower() in aliases:
             if name not in _lexer_cache:
                 _load_lexers(module_name)
@@ -158,7 +146,7 @@ def load_lexer_from_file(filename, lexername="CustomLexer", **options):
         lexer_class = custom_namespace[lexername]
         # And finally instantiate it with the options
         return lexer_class(**options)
-    except OSError as err:
+    except IOError as err:
         raise ClassNotFound('cannot read %s: %s' % (filename, err))
     except ClassNotFound:
         raise
@@ -176,7 +164,7 @@ def find_lexer_class_for_filename(_fn, code=None):
     """
     matches = []
     fn = basename(_fn)
-    for modname, name, _, filenames, _ in LEXERS.values():
+    for modname, name, _, filenames, _ in itervalues(LEXERS):
         for filename in filenames:
             if _fn_matches(fn, filename):
                 if name not in _lexer_cache:
@@ -187,7 +175,7 @@ def find_lexer_class_for_filename(_fn, code=None):
             if _fn_matches(fn, filename):
                 matches.append((cls, filename))
 
-    if isinstance(code, bytes):
+    if sys.version_info > (3,) and isinstance(code, bytes):
         # decode it, since all analyse_text functions expect unicode
         code = guess_decode(code)
 
@@ -212,15 +200,10 @@ def find_lexer_class_for_filename(_fn, code=None):
 def get_lexer_for_filename(_fn, code=None, **options):
     """Get a lexer for a filename.
 
-    Return a `Lexer` subclass instance that has a filename pattern
-    matching `fn`. The lexer is given the `options` at its
-    instantiation.
+    If multiple lexers match the filename pattern, use ``analyse_text()`` to
+    figure out which one is more appropriate.
 
-    Raise :exc:`pygments.util.ClassNotFound` if no lexer for that filename
-    is found.
-
-    If multiple lexers match the filename pattern, use their ``analyse_text()``
-    methods to figure out which one is more appropriate.
+    Raises ClassNotFound if not found.
     """
     res = find_lexer_class_for_filename(_fn, code)
     if not res:
@@ -229,14 +212,11 @@ def get_lexer_for_filename(_fn, code=None, **options):
 
 
 def get_lexer_for_mimetype(_mime, **options):
-    """
-    Return a `Lexer` subclass instance that has `mime` in its mimetype
-    list. The lexer is given the `options` at its instantiation.
+    """Get a lexer for a mimetype.
 
-    Will raise :exc:`pygments.util.ClassNotFound` if not lexer for that mimetype
-    is found.
+    Raises ClassNotFound if not found.
     """
-    for modname, name, _, _, mimetypes in LEXERS.values():
+    for modname, name, _, _, mimetypes in itervalues(LEXERS):
         if _mime in mimetypes:
             if name not in _lexer_cache:
                 _load_lexers(modname)
@@ -255,16 +235,25 @@ def _iter_lexerclasses(plugins=True):
             _load_lexers(module_name)
         yield _lexer_cache[name]
     if plugins:
-        yield from find_plugin_lexers()
+        for lexer in find_plugin_lexers():
+            yield lexer
 
 
 def guess_lexer_for_filename(_fn, _text, **options):
     """
-    As :func:`guess_lexer()`, but only lexers which have a pattern in `filenames`
-    or `alias_filenames` that matches `filename` are taken into consideration.
+    Lookup all lexers that handle those filenames primary (``filenames``)
+    or secondary (``alias_filenames``). Then run a text analysis for those
+    lexers and choose the best result.
 
-    :exc:`pygments.util.ClassNotFound` is raised if no lexer thinks it can
-    handle the content.
+    usage::
+
+        >>> from pygments.lexers import guess_lexer_for_filename
+        >>> guess_lexer_for_filename('hello.html', '<%= @foo %>')
+        <pygments.lexers.templates.RhtmlLexer object at 0xb7d2f32c>
+        >>> guess_lexer_for_filename('hello.html', '<h1>{{ title|e }}</h1>')
+        <pygments.lexers.templates.HtmlDjangoLexer object at 0xb7d2f2ac>
+        >>> guess_lexer_for_filename('style.css', 'a { color: <?= $link ?> }')
+        <pygments.lexers.templates.CssPhpLexer object at 0xb7ba518c>
     """
     fn = basename(_fn)
     primary = {}
@@ -302,17 +291,9 @@ def guess_lexer_for_filename(_fn, _text, **options):
 
 
 def guess_lexer(_text, **options):
-    """
-    Return a `Lexer` subclass instance that's guessed from the text in
-    `text`. For that, the :meth:`.analyse_text()` method of every known lexer
-    class is called with the text as argument, and the lexer which returned the
-    highest value will be instantiated and returned.
+    """Guess a lexer by strong distinctions in the text (eg, shebang)."""
 
-    :exc:`pygments.util.ClassNotFound` is raised if no lexer thinks it can
-    handle the content.
-    """
-
-    if not isinstance(_text, str):
+    if not isinstance(_text, text_type):
         inencoding = options.get('inencoding', options.get('encoding'))
         if inencoding:
             _text = _text.decode(inencoding or 'utf8')

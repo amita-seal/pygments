@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
     pygments.formatters
     ~~~~~~~~~~~~~~~~~~~
 
     Pygments formatters.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -16,7 +17,7 @@ from os.path import basename
 
 from pygments.formatters._mapping import FORMATTERS
 from pygments.plugin import find_plugin_formatters
-from pygments.util import ClassNotFound
+from pygments.util import ClassNotFound, itervalues
 
 __all__ = ['get_formatter_by_name', 'get_formatter_for_filename',
            'get_all_formatters', 'load_formatter_from_file'] + list(FORMATTERS)
@@ -44,7 +45,7 @@ def _load_formatters(module_name):
 def get_all_formatters():
     """Return a generator for all formatter classes."""
     # NB: this returns formatter classes, not info like get_all_lexers().
-    for info in FORMATTERS.values():
+    for info in itervalues(FORMATTERS):
         if info[1] not in _formatter_cache:
             _load_formatters(info[0])
         yield _formatter_cache[info[1]]
@@ -57,7 +58,7 @@ def find_formatter_class(alias):
 
     Returns None if not found.
     """
-    for module_name, name, aliases, _, _ in FORMATTERS.values():
+    for module_name, name, aliases, _, _ in itervalues(FORMATTERS):
         if alias in aliases:
             if name not in _formatter_cache:
                 _load_formatters(module_name)
@@ -68,12 +69,9 @@ def find_formatter_class(alias):
 
 
 def get_formatter_by_name(_alias, **options):
-    """
-    Return an instance of a :class:`.Formatter` subclass that has `alias` in its
-    aliases list. The formatter is given the `options` at its instantiation.
+    """Lookup and instantiate a formatter by alias.
 
-    Will raise :exc:`pygments.util.ClassNotFound` if no formatter with that
-    alias is found.
+    Raises ClassNotFound if not found.
     """
     cls = find_formatter_class(_alias)
     if cls is None:
@@ -81,18 +79,19 @@ def get_formatter_by_name(_alias, **options):
     return cls(**options)
 
 
-def load_formatter_from_file(filename, formattername="CustomFormatter", **options):
-    """
-    Return a `Formatter` subclass instance loaded from the provided file, relative
-    to the current directory.
+def load_formatter_from_file(filename, formattername="CustomFormatter",
+                             **options):
+    """Load a formatter from a file.
 
-    The file is expected to contain a Formatter class named ``formattername``
-    (by default, CustomFormatter). Users should be very careful with the input, because
-    this method is equivalent to running ``eval()`` on the input file. The formatter is
-    given the `options` at its instantiation.
+    This method expects a file located relative to the current working
+    directory, which contains a class named CustomFormatter. By default,
+    it expects the Formatter to be named CustomFormatter; you can specify
+    your own class name as the second argument to this function.
 
-    :exc:`pygments.util.ClassNotFound` is raised if there are any errors loading
-    the formatter.
+    Users should be very careful with the input, because this method
+    is equivalent to running eval on the input file.
+
+    Raises ClassNotFound if there are any problems importing the Formatter.
 
     .. versionadded:: 2.2
     """
@@ -108,7 +107,7 @@ def load_formatter_from_file(filename, formattername="CustomFormatter", **option
         formatter_class = custom_namespace[formattername]
         # And finally instantiate it with the options
         return formatter_class(**options)
-    except OSError as err:
+    except IOError as err:
         raise ClassNotFound('cannot read %s: %s' % (filename, err))
     except ClassNotFound:
         raise
@@ -117,15 +116,12 @@ def load_formatter_from_file(filename, formattername="CustomFormatter", **option
 
 
 def get_formatter_for_filename(fn, **options):
-    """
-    Return a :class:`.Formatter` subclass instance that has a filename pattern
-    matching `fn`. The formatter is given the `options` at its instantiation.
+    """Lookup and instantiate a formatter by filename pattern.
 
-    Will raise :exc:`pygments.util.ClassNotFound` if no formatter for that filename
-    is found.
+    Raises ClassNotFound if not found.
     """
     fn = basename(fn)
-    for modname, name, _, filenames, _ in FORMATTERS.values():
+    for modname, name, _, filenames, _ in itervalues(FORMATTERS):
         for filename in filenames:
             if _fn_matches(fn, filename):
                 if name not in _formatter_cache:

@@ -19,4 +19,4 @@ From Pygments 0.9, the directive is shipped in the distribution as
    ``.. code::`` directives and highlights the contents in the specified language
    if the `handlecodeblocks` option is true.
 
-.. _ReST: https://docutils.sourceforge.io/rst.html
+.. _ReST: http://docutils.sf.net/rst.html

@@ -1,10 +1,11 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers.zig
     ~~~~~~~~~~~~~~~~~~~
 
     Lexers for Zig.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -17,12 +18,11 @@ __all__ = ['ZigLexer']
 
 class ZigLexer(RegexLexer):
     """
-    Lexer for the Zig language.
+    For `Zig <http://www.ziglang.org>`_ source code.
 
     grammar: https://ziglang.org/documentation/master/#Grammar
     """
     name = 'Zig'
-    url = 'http://www.ziglang.org'
     aliases = ['zig']
     filenames = ['*.zig']
     mimetypes = ['text/zig']
@@ -102,7 +102,7 @@ class ZigLexer(RegexLexer):
 
             # Characters
             (r'\'\\\'\'', String.Escape),
-            (r'\'\\(x[a-fA-F0-9]{2}|u[a-fA-F0-9]{4}|U[a-fA-F0-9]{6}|[nr\\t\'"])\'',
+            (r'\'\\(|x[a-fA-F0-9]{2}|u[a-fA-F0-9]{4}|U[a-fA-F0-9]{6}|[nr\\t\'"])\'',
              String.Escape),
             (r'\'[^\\\']\'', String),
 
@@ -122,3 +122,8 @@ class ZigLexer(RegexLexer):
             (r'"', String, '#pop')
         ]
     }
+
+    def get_tokens_unprocessed(self, text):
+        for index, token, value in \
+                RegexLexer.get_tokens_unprocessed(self, text):
+            yield index, token, value

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     pygments.styles.perldoc
     ~~~~~~~~~~~~~~~~~~~~~~~
@@ -6,7 +7,7 @@
 
     .. _perldoc: http://perldoc.perl.org/
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
@@ -21,6 +22,7 @@ class PerldocStyle(Style):
     """
 
     background_color = '#eeeedd'
+    default_style = ''
 
     styles = {
         Whitespace:             '#bbbbbb',
@@ -59,7 +61,6 @@ class PerldocStyle(Style):
         Generic.Error:          '#aa0000',
         Generic.Emph:           'italic',
         Generic.Strong:         'bold',
-        Generic.EmphStrong:     'bold italic',
         Generic.Prompt:         '#555555',
         Generic.Output:         '#888888',
         Generic.Traceback:      '#aa0000',

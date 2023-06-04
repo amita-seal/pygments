@@ -2,79 +2,25 @@ name: Pygments
 
 on: [push, pull_request]
 
-env:
-  FORCE_COLOR: 1
-
-permissions:
-  contents: read # to fetch code (actions/checkout)
-
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+
+    runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
+      max-parallel: 4
       matrix:
-        os: [windows-latest, ubuntu-latest]
-        python-version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12-dev"]
+        python-version: [2.7, 3.5, 3.6, 3.7, 3.8, pypy2, pypy3]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v1
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-    - name: Install tox
-      run: pip install -r requirements.txt
-    - name: Test package (< 3.12)
-      if: matrix.python-version != '3.12-dev'
-      run: tox -- -W error
-    - name: Test package (3.12)
-      if: matrix.python-version == '3.12-dev'
-      # Temporarily allow warnings until pytest
-      # has fixed deprecation warnings:
-      # https://github.com/pytest-dev/pytest/pull/10894
-      run: tox
-
-  check:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.x"
-    - name: Install tox
-      run: pip install -r requirements.txt
-    - name: Perform basic checks
-      run: tox -e check
-      if: runner.os == 'Linux'
-
-  check-mapfiles:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.x"
-    - name: Install tox
-      run: pip install -r requirements.txt
-    - name: Regenerate mapfiles
-      run: tox -e mapfiles
-    - name: Fail if mapfiles changed
+    - name: Install package
       run: |
-        if git ls-files -m | grep mapping; then
-          echo 'Please run "tox -e mapfiles" and add the changes to a commit.'
-          exit 1
-        fi
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.x"
-    - name: Install tox
-      run: pip install -r requirements.txt
-    - name: Run regexlint
-      run: tox -e regexlint
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install .
+    - name: Test package
+      run: make test

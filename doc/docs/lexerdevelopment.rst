@@ -20,11 +20,12 @@ containing tuples in the form ``(index, token, value)``.  Normally you don't
 need to do this since there are base lexers that do most of the work and that
 you can subclass.
 
+
 RegexLexer
 ==========
 
 The lexer base class used by almost all of Pygments' lexers is the
-:class:`RegexLexer <pygments.lexer.RegexLexer>`.  This class allows you to define lexing rules in terms of
+:class:`RegexLexer`.  This class allows you to define lexing rules in terms of
 *regular expressions* for different *states*.
 
 States are groups of regular expressions that are matched against the input
@@ -44,8 +45,7 @@ is a token type (like `Name.Builtin`).  That means: When `regex` matches, emit a
 token with the match text and type `tokentype` and push `new_state` on the state
 stack.  If the new state is ``'#pop'``, the topmost state is popped from the
 stack instead.  To pop more than one state, use ``'#pop:2'`` and so on.
-``'#push'`` is a synonym for pushing a second time the current state on top of
-the stack.
+``'#push'`` is a synonym for pushing the current state on the stack.
 
 The following example shows the `DiffLexer` from the builtin lexers.  Note that
 it contains some additional attributes `name`, `aliases` and `filenames` which
@@ -85,8 +85,8 @@ If no rule matches at the current position, the current char is emitted as an
 one.
 
 
-Using a lexer
-=============
+Adding and testing a new lexer
+==============================
 
 The easiest way to use a new lexer is to use Pygments' support for loading
 the lexer from a file relative to your current directory.
@@ -101,18 +101,18 @@ First, change the name of your lexer class to CustomLexer:
     class CustomLexer(RegexLexer):
         """All your lexer code goes here!"""
 
-Then you can load and test the lexer from the command line with the additional
+Then you can load the lexer from the command line with the additional
 flag ``-x``:
 
 .. code-block:: console
 
-    $ python -m pygments -x -l your_lexer_file.py <inputfile>
+    $ pygmentize -l your_lexer_file.py -x
 
 To specify a class name other than CustomLexer, append it with a colon:
 
 .. code-block:: console
 
-    $ python -m pygments -x -l your_lexer.py:SomeLexer <inputfile>
+    $ pygmentize -l your_lexer.py:SomeLexer -x
 
 Or, using the Python API:
 
@@ -130,19 +130,61 @@ trusted files; Pygments will perform the equivalent of ``eval`` on them.
 If you only want to use your lexer with the Pygments API, you can import and
 instantiate the lexer yourself, then pass it to :func:`pygments.highlight`.
 
-Use the ``-f`` flag to select a different output format than terminal
-escape sequences. The :class:`.HtmlFormatter` helps
-you with debugging your lexer. You can use the ``debug_token_types`` option
-to display the token types assigned to each part of your input file:
+To prepare your new lexer for inclusion in the Pygments distribution, so that it
+will be found when passing filenames or lexer aliases from the command line, you
+have to perform the following steps.
+
+First, change to the current directory containing the Pygments source code.  You
+will need to have either an unpacked source tarball, or (preferably) a copy
+cloned from GitHub.
 
 .. code-block:: console
 
-    $ python -m pygments -x -f html -Ofull,debug_token_types -l your_lexer.py:SomeLexer <inputfile>
+    $ cd .../pygments-main
 
-Hover over each token to see the token type displayed as a tooltip.
+Select a matching module under ``pygments/lexers``, or create a new module for
+your lexer class.
 
-If your lexer would be useful to other people, we would love if you
-contributed it to Pygments.  See :doc:`contributing` for advice.
+Next, make sure the lexer is known from outside of the module.  All modules in
+the ``pygments.lexers`` package specify ``__all__``. For example,
+``esoteric.py`` sets::
+
+    __all__ = ['BrainfuckLexer', 'BefungeLexer', ...]
+
+Add the name of your lexer class to this list (or create the list if your lexer
+is the only class in the module).
+
+Finally the lexer can be made publicly known by rebuilding the lexer mapping:
+
+.. code-block:: console
+
+    $ make mapfiles
+
+To test the new lexer, store an example file with the proper extension in
+``tests/examplefiles``.  For example, to test your ``DiffLexer``, add a
+``tests/examplefiles/example.diff`` containing a sample diff output.
+
+Now you can use pygmentize to render your example to HTML:
+
+.. code-block:: console
+
+    $ ./pygmentize -O full -f html -o /tmp/example.html tests/examplefiles/example.diff
+
+Note that this explicitly calls the ``pygmentize`` in the current directory
+by preceding it with ``./``. This ensures your modifications are used.
+Otherwise a possibly already installed, unmodified version without your new
+lexer would have been called from the system search path (``$PATH``).
+
+To view the result, open ``/tmp/example.html`` in your browser.
+
+Once the example renders as expected, you should run the complete test suite:
+
+.. code-block:: console
+
+    $ make test
+
+It also tests that your lexer fulfills the lexer API and certain invariants,
+such as that the concatenation of all token text is the same as the input text.
 
 
 Regex Flags
@@ -154,7 +196,7 @@ defined, it defaults to `re.MULTILINE`.  For more information about regular
 expression flags see the page about `regular expressions`_ in the Python
 documentation.
 
-.. _regular expressions: https://docs.python.org/library/re.html#regular-expression-syntax
+.. _regular expressions: http://docs.python.org/library/re.html#regular-expression-syntax
 
 
 Scanning multiple tokens at once
@@ -230,7 +272,7 @@ and single-line with ``//`` until end of line)::
                 (r'/', Text)
             ],
             'comment': [
-                (r'[^*/]+', Comment.Multiline),
+                (r'[^*/]', Comment.Multiline),
                 (r'/\*', Comment.Multiline, '#push'),
                 (r'\*/', Comment.Multiline, '#pop'),
                 (r'[*/]', Comment.Multiline)
@@ -285,7 +327,7 @@ There are a few more things you can do with states:
               ...
           ],
           'directive': [
-              (r'[^>]+', Comment.Directive),
+              (r'[^>]*', Comment.Directive),
               (r'>', Comment, '#pop'),
           ],
           'comment': [
@@ -315,20 +357,20 @@ There are a few more things you can do with states:
       class ExampleLexer(RegexLexer):
           tokens = {
               'comments': [
-                  (r'(?s)/\*.*?\*/', Comment),
+                  (r'/\*.*?\*/', Comment),
                   (r'//.*?\n', Comment),
               ],
               'root': [
                   include('comments'),
-                  (r'(function)( )(\w+)( )({)',
-                   bygroups(Keyword, Whitespace, Name, Whitespace, Punctuation), 'function'),
-                  (r'.*\n', Text),
+                  (r'(function )(\w+)( {)',
+                   bygroups(Keyword, Name, Keyword), 'function'),
+                  (r'.', Text),
               ],
               'function': [
                   (r'[^}/]+', Text),
                   include('comments'),
                   (r'/', Text),
-                  (r'\}', Punctuation, '#pop'),
+                  (r'\}', Keyword, '#pop'),
               ]
           }
 
@@ -394,7 +436,7 @@ defined in the parent and child class are merged.  For example::
                   ('[a-z]+', Name),
                   (r'/\*', Comment, 'comment'),
                   ('"', String, 'string'),
-                  (r'\s+', Text),
+                  ('\s+', Text),
               ],
               'string': [
                   ('[^"]+', String),
@@ -513,7 +555,7 @@ appropriate positions. ::
 
     class HtmlPhpLexer(DelegatingLexer):
         def __init__(self, **options):
-            super().__init__(HtmlLexer, PhpLexer, **options)
+            super(HtmlPhpLexer, self).__init__(HtmlLexer, PhpLexer, **options)
 
 This procedure ensures that e.g. HTML with template tags in it is highlighted
 correctly even if the template tags are put into HTML tags or attributes.
@@ -684,110 +726,3 @@ pseudo keywords::
                     yield index, token, value
 
 The `PhpLexer` and `LuaLexer` use this method to resolve builtin functions.
-
-
-
-.. _lexer-pitfalls:
-
-Common pitfalls and best practices
-==================================
-
-Regular expressions are ubiquitous in Pygments lexers.  We have
-written this section to warn about a few common mistakes you might do
-when using them. There are also some tips on making your lexers easier
-to read and review. You are asked to read this section if you want to
-contribute a new lexer, but you might find it useful in any case.
-
-
-* When writing rules, try to merge simple rules. For instance, combine::
-
-     (r"\(", token.Punctuation),
-     (r"\)", token.Punctuation),
-     (r"\[", token.Punctuation),
-     (r"\]", token.Punctuation),
-     ("{", token.Punctuation),
-     ("}", token.Punctuation),
-
-  into::
-
-   (r"[\(\)\[\]{}]", token.Punctuation)
-
-
-* Be careful with ``.*``. This matches greedily as much as it can. For instance,
-  a rule like ``@.*@`` will match the whole string ``@first@ second @third@``,
-  instead of matching ``@first@`` and ``@second@``. You can use ``@.*?@`` in
-  this case to stop early. The ``?`` tries to match *as few times* as possible.
-
-* Beware of so-called "catastrophic backtracking".  As a first example, consider
-  the regular expression ``(A+)*B``.  This is equivalent to ``A*B`` regarding
-  what it matches, but *non*-matches will take very long.  This is because
-  of the way the regular expression engine works.  Suppose you feed it 50
-  'A's, and a 'C' at the end.  It first matches the 'A's greedily in ``A+``,
-  but finds that it cannot match the end since 'B' is not the same as 'C'.
-  Then it backtracks, removing one 'A' from the first ``A+`` and trying to
-  match the rest as another ``(A+)*``.  This fails again, so it backtracks
-  further left in the input string, etc.  In effect, it tries all combinations
-
-  .. code-block:: text
-
-     (AAAAAAAAAAAAAAAAA)
-     (AAAAAAAAAAAAAAAA)(A)
-     (AAAAAAAAAAAAAAA)(AA)
-     (AAAAAAAAAAAAAAA)(A)(A)
-     (AAAAAAAAAAAAAA)(AAA)
-     (AAAAAAAAAAAAAA)(AA)(A)
-     ...
-
-  Thus, the matching has exponential complexity.  In a lexer, the
-  effect is that Pygments will seemingly hang when parsing invalid
-  input. ::
-
-     >>> import re
-     >>> re.match('(A+)*B', 'A'*50 + 'C') # hangs
-
-  As a more subtle and real-life example, here is a badly written
-  regular expression to match strings::
-
-     r'"(\\?.)*?"'
-
-  If the ending quote is missing, the regular expression engine will
-  find that it cannot match at the end, and try to backtrack with less
-  matches in the ``*?``.  When it finds a backslash, as it has already
-  tried the possibility ``\\.``, it tries ``.`` (recognizing it as a
-  simple character without meaning), which leads to the same
-  exponential backtracking problem if there are lots of backslashes in
-  the (invalid) input string.  A good way to write this would be
-  ``r'"([^\\]|\\.)*?"'``, where the inner group can only match in one
-  way.  Better yet is to use a dedicated state, which not only
-  sidesteps the issue without headaches, but allows you to highlight
-  string escapes. ::
-
-     'root': [
-         ...,
-         (r'"', String, 'string'),
-         ...
-     ],
-     'string': [
-         (r'\\.', String.Escape),
-         (r'"', String, '#pop'),
-         (r'[^\\"]+', String),
-     ]
-
-* When writing rules for patterns such as comments or strings, match as many
-  characters as possible in each token.  This is an example of what *not* to
-  do::
-
-     'comment': [
-         (r'\*/', Comment.Multiline, '#pop'),
-         (r'.', Comment.Multiline),
-     ]
-
-  This generates one token per character in the comment, which slows
-  down the lexing process, and also makes the raw token output (and in
-  particular the test output) hard to read.  Do this instead::
-
-     'comment': [
-         (r'\*/', Comment.Multiline, '#pop'),
-         (r'[^*]+', Comment.Multiline),
-         (r'\*', Comment.Multiline),
-     ]

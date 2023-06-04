@@ -1,16 +1,19 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers.solidity
     ~~~~~~~~~~~~~~~~~~~~~~~~
 
     Lexers for Solidity.
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
+import re
+
 from pygments.lexer import RegexLexer, bygroups, include, words
 from pygments.token import Text, Comment, Operator, Keyword, Name, String, \
-    Number, Punctuation, Whitespace
+    Number, Punctuation
 
 __all__ = ['SolidityLexer']
 
@@ -27,8 +30,10 @@ class SolidityLexer(RegexLexer):
     filenames = ['*.sol']
     mimetypes = []
 
+    flags = re.MULTILINE | re.UNICODE
+
     datatype = (
-        r'\b(address|bool|(?:(?:bytes|hash|int|string|uint)(?:8|16|24|32|40|48|56|64'
+        r'\b(address|bool|((bytes|hash|int|string|uint)(8|16|24|32|40|48|56|64'
         r'|72|80|88|96|104|112|120|128|136|144|152|160|168|176|184|192|200|208'
         r'|216|224|232|240|248|256)?))\b'
     )
@@ -39,13 +44,14 @@ class SolidityLexer(RegexLexer):
             include('comments'),
             (r'\bpragma\s+solidity\b', Keyword, 'pragma'),
             (r'\b(contract)(\s+)([a-zA-Z_]\w*)',
-             bygroups(Keyword, Whitespace, Name.Entity)),
-            (datatype + r'(\s+)((?:external|public|internal|private)\s+)?' +
+             bygroups(Keyword, Text.WhiteSpace, Name.Entity)),
+            (datatype + r'(\s+)((external|public|internal|private)\s+)?' +
              r'([a-zA-Z_]\w*)',
-             bygroups(Keyword.Type, Whitespace, Keyword, Name.Variable)),
+             bygroups(Keyword.Type, None, None, None, Text.WhiteSpace, Keyword,
+                      None, Name.Variable)),
             (r'\b(enum|event|function|struct)(\s+)([a-zA-Z_]\w*)',
-             bygroups(Keyword.Type, Whitespace, Name.Variable)),
-            (r'\b(msg|block|tx)\.([A-Za-z_][a-zA-Z0-9_]*)\b', Keyword),
+             bygroups(Keyword.Type, Text.WhiteSpace, Name.Variable)),
+            (r'\b(msg|block|tx)\.([A-Za-z_][A-Za-z0-9_]*)\b', Keyword),
             (words((
                 'block', 'break', 'constant', 'constructor', 'continue',
                 'contract', 'do', 'else', 'external', 'false', 'for',
@@ -59,8 +65,8 @@ class SolidityLexer(RegexLexer):
             (datatype, Keyword.Type),
             include('constants'),
             (r'[a-zA-Z_]\w*', Text),
-            (r'[~!%^&*+=|?:<>/-]', Operator),
-            (r'[.;{}(),\[\]]', Punctuation)
+            (r'[!<=>+*/-]', Operator),
+            (r'[.;:{}(),\[\]]', Punctuation)
         ],
         'comments': [
             (r'//(\n|[\w\W]*?[^\\]\n)', Comment.Single),
@@ -68,8 +74,8 @@ class SolidityLexer(RegexLexer):
             (r'/(\\\n)?[*][\w\W]*', Comment.Multiline)
         ],
         'constants': [
-            (r'("(\\"|.)*?")', String.Double),
-            (r"('(\\'|.)*?')", String.Single),
+            (r'("([\\]"|.)*?")', String.Double),
+            (r"('([\\]'|.)*?')", String.Single),
             (r'\b0[xX][0-9a-fA-F]+\b', Number.Hex),
             (r'\b\d+\b', Number.Decimal),
         ],
@@ -77,11 +83,11 @@ class SolidityLexer(RegexLexer):
             include('whitespace'),
             include('comments'),
             (r'(\^|>=|<)(\s*)(\d+\.\d+\.\d+)',
-             bygroups(Operator, Whitespace, Keyword)),
+             bygroups(Operator, Text.WhiteSpace, Keyword)),
             (r';', Punctuation, '#pop')
         ],
         'whitespace': [
-            (r'\s+', Whitespace),
-            (r'\n', Whitespace)
+            (r'\s+', Text.WhiteSpace),
+            (r'\n', Text.WhiteSpace)
         ]
     }

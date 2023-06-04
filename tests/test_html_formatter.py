@@ -1,28 +1,31 @@
+# -*- coding: utf-8 -*-
 """
     Pygments HTML formatter tests
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
+from __future__ import print_function
+
+import io
 import os
 import re
 import tempfile
-from io import StringIO
 from os import path
 
-import pytest
+from pytest import raises
 
+from pygments.util import StringIO
+from pygments.lexers import PythonLexer
 from pygments.formatters import HtmlFormatter, NullFormatter
 from pygments.formatters.html import escape_html
-from pygments.lexers import PythonLexer
-from pygments.style import Style
 
 TESTDIR = path.dirname(path.abspath(__file__))
 TESTFILE = path.join(TESTDIR, 'test_html_formatter.py')
 
-with open(TESTFILE, encoding='utf-8') as fp:
+with io.open(TESTFILE, encoding='utf-8') as fp:
     tokensource = list(PythonLexer().get_tokens(fp.read()))
 
 
@@ -52,7 +55,7 @@ def test_external_css():
     try:
         fmt2.format(tokensource, tfile)
         assert path.isfile(path.join(TESTDIR, 'fmt2.css'))
-    except OSError:
+    except IOError:
         # test directory not writable
         pass
     tfile.close()
@@ -93,12 +96,22 @@ def test_all_options():
                     check(optdict)
 
 
-def test_linespans():
+def test_linenos():
+    optdict = dict(linenos=True)
     outfile = StringIO()
-    fmt = HtmlFormatter(linespans='L', anchorlinenos=True, linenos="inline")
+    fmt = HtmlFormatter(**optdict)
     fmt.format(tokensource, outfile)
     html = outfile.getvalue()
-    assert re.search(r"""<span id="L-1">\s*<a href="#L-1"><span\s*class="linenos">\s*1</span></a>""", html)
+    assert re.search(r"<pre>\s+1\s+2\s+3", html)
+
+
+def test_linenos_with_startnum():
+    optdict = dict(linenos=True, linenostart=5)
+    outfile = StringIO()
+    fmt = HtmlFormatter(**optdict)
+    fmt.format(tokensource, outfile)
+    html = outfile.getvalue()
+    assert re.search(r"<pre>\s+5\s+6\s+7", html)
 
 
 def test_lineanchors():
@@ -107,7 +120,7 @@ def test_lineanchors():
     fmt = HtmlFormatter(**optdict)
     fmt.format(tokensource, outfile)
     html = outfile.getvalue()
-    assert re.search("<pre>\\s*<span>\\s*</span>\\s*<a id=\"foo-1\" name=\"foo-1\" href=\"#foo-1\">", html)
+    assert re.search("<pre><span></span><a name=\"foo-1\">", html)
 
 
 def test_lineanchors_with_startnum():
@@ -116,7 +129,7 @@ def test_lineanchors_with_startnum():
     fmt = HtmlFormatter(**optdict)
     fmt.format(tokensource, outfile)
     html = outfile.getvalue()
-    assert re.search("<pre>\\s*<span>\\s*</span>\\s*<a id=\"foo-5\" name=\"foo-5\" href=\"#foo-5\">", html)
+    assert re.search("<pre><span></span><a name=\"foo-5\">", html)
 
 
 def test_valid_output():
@@ -146,83 +159,25 @@ def test_valid_output():
     os.unlink(pathname)
 
 
-def test_get_style_defs_contains_pre_style():
-    style_defs = HtmlFormatter().get_style_defs().splitlines()
-    assert style_defs[0] == 'pre { line-height: 125%; }'
+def test_get_style_defs():
+    fmt = HtmlFormatter()
+    sd = fmt.get_style_defs()
+    assert sd.startswith('.')
 
-
-def test_get_style_defs_contains_default_line_numbers_styles():
-    style_defs = HtmlFormatter().get_style_defs().splitlines()
-
-    assert style_defs[1] == (
-        'td.linenos .normal '
-        '{ color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }'
-    )
-    assert style_defs[2] == (
-        'span.linenos '
-        '{ color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }'
-    )
-
-
-def test_get_style_defs_contains_style_specific_line_numbers_styles():
-    class TestStyle(Style):
-        line_number_color = '#ff0000'
-        line_number_background_color = '#0000ff'
-        line_number_special_color = '#00ff00'
-        line_number_special_background_color = '#ffffff'
-
-    style_defs = HtmlFormatter(style=TestStyle).get_style_defs().splitlines()
-
-    assert style_defs[1] == (
-        'td.linenos .normal '
-        '{ color: #ff0000; background-color: #0000ff; padding-left: 5px; padding-right: 5px; }'
-    )
-    assert style_defs[2] == (
-        'span.linenos '
-        '{ color: #ff0000; background-color: #0000ff; padding-left: 5px; padding-right: 5px; }'
-    )
-    assert style_defs[3] == (
-        'td.linenos .special '
-        '{ color: #00ff00; background-color: #ffffff; padding-left: 5px; padding-right: 5px; }'
-    )
-    assert style_defs[4] == (
-        'span.linenos.special '
-        '{ color: #00ff00; background-color: #ffffff; padding-left: 5px; padding-right: 5px; }'
-    )
-
-
-@pytest.mark.parametrize(
-    "formatter_kwargs, style_defs_args, assert_starts_with, assert_contains",
-    [
-        [{}, [], ".", []],
-        [{"cssclass": "foo"}, [], ".foo .", []],
-        [{"cssclass": "foo"}, [".bar"], ".bar .", []],
-        [{"cssclass": "foo"}, [[".bar", ".baz"]], ".ba", [".bar .", ".baz ."]],
-    ]
-)
-def test_get_token_style_defs_uses_css_prefix(
-    formatter_kwargs, style_defs_args, assert_starts_with, assert_contains
-):
-    formatter = HtmlFormatter(**formatter_kwargs)
-
-    for line in formatter.get_token_style_defs(*style_defs_args):
-        assert line.startswith(assert_starts_with)
-        for s in assert_contains:
-            assert s in line
-
-
-def test_get_background_style_defs_uses_multiple_css_prefixes():
-    formatter = HtmlFormatter()
-
-    lines = formatter.get_background_style_defs([".foo", ".bar"])
-    assert lines[0].startswith(".foo .hll, .bar .hll {")
-    assert lines[1].startswith(".foo , .bar {")
+    fmt = HtmlFormatter(cssclass='foo')
+    sd = fmt.get_style_defs()
+    assert sd.startswith('.foo')
+    sd = fmt.get_style_defs('.bar')
+    assert sd.startswith('.bar')
+    sd = fmt.get_style_defs(['.bar', '.baz'])
+    fl = sd.splitlines()[0]
+    assert '.bar' in fl and '.baz' in fl
 
 
 def test_unicode_options():
-    fmt = HtmlFormatter(title='Föö',
-                        cssclass='bär',
-                        cssstyles='div:before { content: \'bäz\' }',
+    fmt = HtmlFormatter(title=u'Föö',
+                        cssclass=u'bär',
+                        cssstyles=u'div:before { content: \'bäz\' }',
                         encoding='utf-8')
     handle, pathname = tempfile.mkstemp('.html')
     with os.fdopen(handle, 'w+b') as tfile:
@@ -231,12 +186,10 @@ def test_unicode_options():
 
 def test_ctags():
     try:
-        import ctags # noqa: F401
+        import ctags
     except ImportError:
         # we can't check without the ctags module, but at least check the exception
-        assert pytest.raises(
-            RuntimeError, HtmlFormatter, tagsfile='support/tags'
-        )
+        assert raises(RuntimeError, HtmlFormatter, tagsfile='support/tags')
     else:
         # this tagfile says that test_ctags() is on line 165, even if it isn't
         # anymore in the actual source
@@ -255,17 +208,3 @@ def test_filename():
     fmt.format(tokensource, outfile)
     html = outfile.getvalue()
     assert re.search("<span class=\"filename\">test.py</span><pre>", html)
-
-
-def test_debug_token_types():
-    fmt_nod_token_types = HtmlFormatter(debug_token_types=False)
-    outfile_nod_token_types = StringIO()
-    fmt_nod_token_types.format(tokensource, outfile_nod_token_types)
-    html_nod_token_types = outfile_nod_token_types.getvalue()
-    assert '<span class="n" title="Name">TESTDIR</span>' not in html_nod_token_types
-
-    fmt_debug_token_types = HtmlFormatter(debug_token_types=True)
-    outfile_debug_token_types = StringIO()
-    fmt_debug_token_types.format(tokensource, outfile_debug_token_types)
-    html_debug_token_types = outfile_debug_token_types.getvalue()
-    assert '<span class="n" title="Name">TESTDIR</span>' in html_debug_token_types

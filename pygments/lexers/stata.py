@@ -1,15 +1,16 @@
+# -*- coding: utf-8 -*-
 """
     pygments.lexers.stata
     ~~~~~~~~~~~~~~~~~~~~~
 
     Lexer for Stata
 
-    :copyright: Copyright 2006-2023 by the Pygments team, see AUTHORS.
+    :copyright: Copyright 2006-2019 by the Pygments team, see AUTHORS.
     :license: BSD, see LICENSE for details.
 """
 
 import re
-from pygments.lexer import RegexLexer, default, include, words
+from pygments.lexer import RegexLexer, include, words
 from pygments.token import Comment, Keyword, Name, Number, \
     String, Text, Operator
 
@@ -20,17 +21,16 @@ __all__ = ['StataLexer']
 
 class StataLexer(RegexLexer):
     """
-    For Stata do files.
+    For `Stata <http://www.stata.com/>`_ do files.
 
     .. versionadded:: 2.2
     """
     # Syntax based on
     # - http://fmwww.bc.edu/RePEc/bocode/s/synlightlist.ado
-    # - https://github.com/isagalaev/highlight.js/blob/master/src/languages/stata.js
-    # - https://github.com/jpitblado/vim-stata/blob/master/syntax/stata.vim
+    # - http://github.com/isagalaev/highlight.js/blob/master/src/languages/stata.js
+    # - http://github.com/jpitblado/vim-stata/blob/master/syntax/stata.vim
 
-    name = 'Stata'
-    url = 'http://www.stata.com/'
+    name      = 'Stata'
     aliases   = ['stata', 'do']
     filenames = ['*.do', '*.ado']
     mimetypes = ['text/x-stata', 'text/stata', 'application/x-stata']
@@ -118,27 +118,27 @@ class StataLexer(RegexLexer):
         # A global is more restricted, so we do follow rules. Note only
         # locals explicitly enclosed ${} can be nested.
         'macros': [
-            (r'\$(\{|(?=[$`]))', Name.Variable.Global, 'macro-global-nested'),
+            (r'\$(\{|(?=[\$`]))', Name.Variable.Global, 'macro-global-nested'),
             (r'\$', Name.Variable.Global,  'macro-global-name'),
             (r'`', Name.Variable, 'macro-local'),
         ],
         'macro-local': [
             (r'`', Name.Variable, '#push'),
             (r"'", Name.Variable, '#pop'),
-            (r'\$(\{|(?=[$`]))', Name.Variable.Global, 'macro-global-nested'),
+            (r'\$(\{|(?=[\$`]))', Name.Variable.Global, 'macro-global-nested'),
             (r'\$', Name.Variable.Global, 'macro-global-name'),
             (r'.', Name.Variable),  # fallback
         ],
         'macro-global-nested': [
-            (r'\$(\{|(?=[$`]))', Name.Variable.Global, '#push'),
+            (r'\$(\{|(?=[\$`]))', Name.Variable.Global, '#push'),
             (r'\}', Name.Variable.Global, '#pop'),
             (r'\$', Name.Variable.Global, 'macro-global-name'),
             (r'`', Name.Variable, 'macro-local'),
             (r'\w', Name.Variable.Global),  # fallback
-            default('#pop'),
+            (r'(?!\w)', Name.Variable.Global, '#pop'),
         ],
         'macro-global-name': [
-            (r'\$(\{|(?=[$`]))', Name.Variable.Global, 'macro-global-nested', '#pop'),
+            (r'\$(\{|(?=[\$`]))', Name.Variable.Global, 'macro-global-nested', '#pop'),
             (r'\$', Name.Variable.Global, 'macro-global-name', '#pop'),
             (r'`', Name.Variable, 'macro-local', '#pop'),
             (r'\w{1,32}', Name.Variable.Global, '#pop'),
